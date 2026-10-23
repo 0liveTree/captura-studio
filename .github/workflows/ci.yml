@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust tests and engine
+        working-directory: uvc03-rec
+        run: |
+          cargo test --release --lib
+          cargo build --release --bin captura-rec
+
+      - name: MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build WinUI app
+        run: >
+          msbuild uwc03-winui\CapturaStudio.csproj
+          /restore
+          /p:Configuration=Release
+          /p:Platform=x64
+          /p:NuGetAudit=false
+          /v:m

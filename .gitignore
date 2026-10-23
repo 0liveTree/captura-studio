@@ -1,0 +1,40 @@
+# Rust
+uvc03-rec/target/
+**/*.rs.bk
+
+# .NET / WinUI
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+*.pdb
+*.xbf
+AppPackages/
+dist/
+
+# Instalador / bundle (gerado localmente)
+installer/bundle/
+installer/*.zip
+
+# Logs, chaves e ficheiros locais
+*.log
+*.key
+*.pem
+*.pfx
+appkeys.log
+keys.log
+adbpk
+
+# Media de teste
+*.mp4
+*.mkv
+*.ts
+*.wav
+*.flac
+*.mp3
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store

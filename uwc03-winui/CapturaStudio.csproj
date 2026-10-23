@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>CapturaStudio</AssemblyName>
+    <Version>1.0.0</Version>
+    <Company>OliveTree</Company>
+    <Product>Captura Studio</Product>
+    <Copyright>© 2026 OliveTree - Feito em Portugal com amor e carinho</Copyright>
+    <RootNamespace>CapturaStudio</RootNamespace>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <!-- WindowsPackageType=None → app unpackaged (sem MSIX).
+         WindowsAppSDKSelfContained=true → o bootstrap integra o runtime localmente
+         e gera o PRI com ms-appx:/// resolvível sem identidade de pacote.
+         Sem isto, ms-appx:///MainWindow.xaml falha com XamlParseException 0xc000027b. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>false</SelfContained>
+
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.260224002" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+</Project>
+
+
+
+

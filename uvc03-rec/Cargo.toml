@@ -1,0 +1,46 @@
+[package]
+name = "captura-rec"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "uvc03_rec"
+path = "src/lib.rs"
+
+[[bin]]
+name = "captura-rec"
+path = "src/main.rs"
+
+[[bin]]
+name = "captura-gui"
+path = "src/bin/gui.rs"
+
+[[bin]]
+name = "uvc03-egui"
+path = "src/bin/gui_egui.rs"
+required-features = ["gui"]
+
+[features]
+default = []
+gui = ["dep:eframe"]
+
+[dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Media_MediaFoundation",
+    "Win32_System_Com",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",    "Win32_UI_Controls",
+    "Win32_Graphics_Dwm",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Registry",
+] }
+eframe = { version = "0.29", optional = true }
+
+[profile.release]
+opt-level = 2
+
+
+
+
+
