@@ -42,6 +42,7 @@ passar por MJPEG nem por um segundo leitor.
 - **FFmpeg** com `h264_nvenc`/`hevc_nvenc` ou `libx264`/`libx265` — opcional para o caminho
   Media Foundation, necessário para a pipeline FFmpeg. O instalador inclui um build GPLv3
   (ver [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
+- **Inno Setup 6** — opcional; só para gerar o `Setup.exe`.
 
 ## Build
 
@@ -62,19 +63,36 @@ msbuild CapturaStudio.csproj /restore /p:Configuration=Release /p:Platform=x64 /
 O binário da app fica em `uwc03-winui\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\`.
 O motor fica em `uvc03-rec\target\release\captura-rec.exe`.
 
+### Instalador (Setup.exe)
+
+Requer **Inno Setup 6** (`winget install --id JRSoftware.InnoSetup -e`). O script usa
+`installer\bundle` ou extrai `installer\CapturaStudio-1.0.0.zip`; se nenhum existir, corre
+`build-bundle.ps1` (que precisa da app e do motor compilados).
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
+```
+
+Gera `installer\out\CapturaStudio-1.0.0-Setup.exe`.
+
 ## Instalação
 
-### A partir da release
+### A partir do instalador (recomendado)
 
-Descarrega o ZIP do instalador na [página de Releases](../../releases/latest), extrai e corre:
+Descarrega `CapturaStudio-1.0.0-Setup.exe` na [página de Releases](../../releases/latest) e
+executa. O Setup instala por utilizador em `%LOCALAPPDATA%\CapturaStudio`, **sem admin**, cria
+o atalho no Menu Iniciar e regista a desinstalação. `settings.json` e `profiles.json` são
+preservados.
+
+### A partir do ZIP (portátil/PowerShell)
+
+Descarrega o ZIP e corre:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-captura.ps1
 ```
 
-Instala em `%LOCALAPPDATA%\CapturaStudio`, preserva `settings.json` e `profiles.json`, cria
-atalhos e regista a desinstalação em HKCU. O ZIP inclui a app, o motor, o FFmpeg e os avisos
-de terceiros.
+O ZIP inclui a app, o motor, o FFmpeg e os avisos de terceiros.
 
 ### A partir do código
 
@@ -109,7 +127,7 @@ Em `--raw-video`, o stdout é só NV12; o áudio PCM vai para `<out>.wav` e o es
 |---|---|
 | `uvc03-rec/` | Motor em Rust (captura, conversão, codificação, preview) |
 | `uwc03-winui/` | Aplicação WinUI 3 |
-| `installer/` | Instalação/desinstalação por utilizador e criação do bundle |
+| `installer/` | Setup Inno (`CapturaStudio.iss`, `build-installer.ps1`), instalação/desinstalação por utilizador e bundle |
 | `scripts/` | Smoke test do motor + FFmpeg |
 
 ## Testes
