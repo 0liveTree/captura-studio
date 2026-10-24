@@ -10,7 +10,7 @@
 
     Exemplo:
       powershell -NoProfile -ExecutionPolicy Bypass -File .\build-installer.ps1
-      ... -Version 1.1.1
+      ... -Version 2.0.0
 #>
 [CmdletBinding()]
 param(
@@ -33,9 +33,10 @@ if (-not $Version) {
         $xml = Get-Content $csproj -Raw
         if ($xml -match '<Version>([^<]+)</Version>') { $Version = $Matches[1].Trim() }
     }
-    if (-not $Version) { $Version = '1.1.1' }
+    if (-not $Version) { $Version = '2.0.0-beta.1' }
 }
-$versionInfo = "$Version.0"
+$numericVersion = ($Version -split '-')[0]
+$versionInfo = "$numericVersion.0"
 $zip = Join-Path $here "CapturaStudio-$Version.zip"
 
 $bundleApp = Join-Path $bundle 'app\CapturaStudio.exe'

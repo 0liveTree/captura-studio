@@ -84,6 +84,7 @@ fn main() {
             "--format" => cfg.format = val().to_lowercase(),
             "--color-space" => cfg.color_space = val().to_lowercase(),
             "--color-range" => cfg.color_range = val().to_lowercase(),
+            "--hdr" => cfg.hdr = val().to_lowercase(),
             "--preview" => preview_mode = true,
             "--preview-port" => cfg.preview_port = val().parse().ok(),
             "--raw-video" => cfg.raw_video = true,

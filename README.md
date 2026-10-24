@@ -14,9 +14,10 @@ passar por MJPEG nem por um segundo leitor.
 ## Funcionalidades
 
 - Abre qualquer placa UVC / webcam via Media Foundation (`IMFSourceReader`)
-- Formatos de entrada: **Auto, NV12, MJPEG, YUY2, RGB32**
-- Resoluções e FPS **lidos da própria placa** (`--caps`)
-- Codificação **H.264 (NVENC/x264)**, **H.265 (NVENC/x265)** ou **AV1 (SVT-AV1)**
+- Formatos de entrada: **Auto, NV12, P010 (10-bit), MJPEG, YUY2, RGB32**
+- Resoluções e FPS **lidos da própria placa** (`--caps`), incluindo **4K** quando exposto
+- Codificação **H.264 (NVENC/x264)**, **H.265 (NVENC/x265)** ou **AV1 (SVT-AV1)**, com
+  **10-bit** e **HDR10/HLG** quando a captura é P010
 - **GPU (hardware)** ou CPU — NVENC (NVIDIA), QSV (Intel) ou AMF (AMD), testados no arranque,
   com fallback automático para software
 - **Pipeline FFmpeg**: o motor entrega NV12 em bruto e o FFmpeg codifica com
@@ -25,10 +26,13 @@ passar por MJPEG nem por um segundo leitor.
   **controlo da frequência** (CBR, CQP, VBR, VBR com qualidade alvo, sem perdas),
   **GOP em segundos (0 = automático)** e **CQ**
 - Rate control, bitrate, GOP/keyframe configuráveis também no caminho Media Foundation
-- Perfis de cor: **Rec.709 / Rec.2020** e intervalo **limitado/completo**
+- Perfis de cor: **Rec.709**, **Rec.2020 SDR**, **HDR10 (PQ)** e **HLG**, com metadados
+  injetados no bitstream; intervalo **limitado/completo**
 - Áudio **AAC (FFmpeg)**, **PCM** (16/24/32-bit; 32 depende da placa, com fallback automático),
   **MP3 (LAME)**, **FLAC (FFmpeg)** ou **Opus (libopus)**
 - Contentores: **MP4, MKV, TS**
+- **10-bit / HDR / 4K** dependem da placa: é preciso um modo **P010** para HDR e uma ligação
+  USB 3 com largura de banda suficiente para 4K. O preview HDR é convertido para SDR.
 - **Divisão automática** em segmentos (5/10/30/60 min)
 - **Modo portátil** (definições/perfis/motor/FFmpeg ao lado do bundle) e **proteção de disco**
   (para a gravação antes de o disco encher)
@@ -77,18 +81,18 @@ O motor fica em `uvc03-rec\target\release\captura-rec.exe`.
 ### Instalador (Setup.exe)
 
 Requer **Inno Setup 6** (`winget install --id JRSoftware.InnoSetup -e`). O script usa
-`installer\bundle` ou extrai `installer\CapturaStudio-1.1.1.zip`; se nenhum existir, corre
+`installer\bundle` ou extrai `installer\CapturaStudio-2.0.0-beta.1.zip`; se nenhum existir, corre
 `build-bundle.ps1` (que precisa da app e do motor compilados).
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```
 
-Gera `installer\out\CapturaStudio-1.1.1-Setup.exe` e `installer\out\latest.json`.
+Gera `installer\out\CapturaStudio-2.0.0-beta.1-Setup.exe` e `installer\out\latest.json`.
 
 ## Assinatura
 
-A build 1.1.1 é distribuída **sem assinatura de código** — a candidatura à SignPath Foundation não
+A build 2.0.0-beta.1 é distribuída **sem assinatura de código** — a candidatura à SignPath Foundation não
 foi aprovada. O Windows SmartScreen pode mostrar um aviso; podes confirmar a integridade pelo
 SHA-256 publicado na release.
 
@@ -96,7 +100,7 @@ SHA-256 publicado na release.
 
 ### A partir do instalador (recomendado)
 
-Descarrega `CapturaStudio-1.1.1-Setup.exe` na [página de Releases](../../releases/latest) e
+Descarrega `CapturaStudio-2.0.0-beta.1-Setup.exe` na [página de Releases](../../releases/latest) e
 executa. O Setup instala por utilizador em `%LOCALAPPDATA%\CapturaStudio`, **sem admin**, cria
 o atalho no Menu Iniciar e regista a desinstalação. `settings.json` e `profiles.json` são
 preservados.
@@ -140,8 +144,8 @@ https://github.com/0liveTree/captura-studio/releases/latest/download/latest.json
   `installer\build-installer.ps1` gera os dois em `installer\out`:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 1.1.1 -Notes "..."
-gh release create v1.1.1 "installer\out\CapturaStudio-1.1.1-Setup.exe" "installer\out\latest.json" --title "Captura Studio 1.1.1" --notes "..."
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 2.0.0-beta.1 -Notes "..."
+gh release create v2.0.0-beta.1 "installer\out\CapturaStudio-2.0.0-beta.1-Setup.exe" "installer\out\latest.json" --title "Captura Studio 2.0.0-beta.1" --notes "..."
 ```
 
 - O Setup não está assinado; o SmartScreen pode avisar.

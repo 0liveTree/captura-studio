@@ -4,10 +4,10 @@
 
 #define MyAppName "Captura Studio"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.1.1"
+  #define MyAppVersion "2.0.0-beta.1"
 #endif
 #ifndef MyAppVersionInfo
-  #define MyAppVersionInfo "1.1.1.0"
+  #define MyAppVersionInfo "2.0.0.0"
 #endif
 #define MyAppPublisher "OliveTree"
 #define MyAppExeName "CapturaStudio.exe"

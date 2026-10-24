@@ -52,6 +52,7 @@ pub struct Config {
     pub preview_port: Option<u16>,
     pub raw_video: bool,
     pub color_range: String,
+    pub hdr: String,
 }
 
 impl Default for Config {
@@ -83,6 +84,7 @@ impl Default for Config {
             preview_port: None,
             raw_video: false,
             color_range: "limited".into(),
+            hdr: "sdr".into(),
         }
     }
 }
@@ -250,7 +252,14 @@ unsafe fn open_raw_video_reader(cfg: &Config) -> windows::core::Result<(IMFMedia
 
     let nv12 = MFCreateMediaType()?;
     nv12.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video)?;
-    nv12.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_NV12)?;
+    nv12.SetGUID(
+        &MF_MT_SUBTYPE,
+        if cfg.format.eq_ignore_ascii_case("p010") {
+            &MFVideoFormat_P010
+        } else {
+            &MFVideoFormat_NV12
+        },
+    )?;
     nv12.SetUINT64(&MF_MT_FRAME_SIZE, ((cfg.w as u64) << 32) | cfg.h as u64)?;
     nv12.SetUINT64(&MF_MT_FRAME_RATE, ((cfg.fps as u64) << 32) | 1)?;
     nv12.SetUINT32(&MF_MT_INTERLACE_MODE, 2)?;
@@ -268,6 +277,12 @@ unsafe impl Sync for SendWriter {}
 /// Escala do preview: no máximo ~1280 px de largura (o cartão da app é bem menor).
 fn preview_scale(w: u32) -> u32 {
     ((w.max(1) + 1279) / 1280).max(1)
+}
+
+/// P010 (10-bit em 16-bit LE) → NV12 8-bit para o preview: fica o byte alto
+/// de cada amostra, que é o código de 8 bits mais próximo.
+fn p010_to_nv12(src: &[u8]) -> Vec<u8> {
+    src.chunks_exact(2).map(|c| c[1]).collect()
 }
 
 /// NV12 → BGRX (o mesmo layout que o `MFVideoFormat_RGB32` do Media Foundation,
@@ -346,13 +361,16 @@ impl PreviewHub {
             );
             let cs2020 = cfg.color_space.eq_ignore_ascii_case("2020");
             let full = cfg.color_range.eq_ignore_ascii_case("full");
+            let p010 = cfg.format.eq_ignore_ascii_case("p010");
             thread::spawn(move || {
                 let Ok((mut s, _)) = lv.accept() else { return };
                 von.store(true, Ordering::SeqCst);
                 let _ = s.set_nodelay(true);
                 use std::io::Write;
                 while let Ok(buf) = vrx.recv() {
-                    let (w2, h2, rgb) = nv12_to_bgrx(&buf, pw, ph, pscale, cs2020, full);
+                    let nv = if p010 { Some(p010_to_nv12(&buf)) } else { None };
+                    let data = nv.as_deref().unwrap_or(&buf);
+                    let (w2, h2, rgb) = nv12_to_bgrx(data, pw, ph, pscale, cs2020, full);
                     let mut hdr = [0u8; 12];
                     hdr[0..4].copy_from_slice(&(w2 as u32).to_le_bytes());
                     hdr[4..8].copy_from_slice(&(h2 as u32).to_le_bytes());
@@ -574,7 +592,21 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
         let mut first_frame: Option<Instant> = None;
         let first_frame_watch = Arc::new(Mutex::new(None::<Instant>));
         let mut frames = 0u64;
-        let expected_frame = (cfg.w as usize * cfg.h as usize * 3) / 2;
+        let p010 = cfg.format.eq_ignore_ascii_case("p010");
+        let expected_frame = if p010 {
+            cfg.w as usize * cfg.h as usize * 2
+        } else {
+            cfg.w as usize * cfg.h as usize * 3 / 2
+        };
+        let publish = |bytes: &[u8]| {
+            if let Some(h) = &hub {
+                if p010 {
+                    h.video(&p010_to_nv12(bytes));
+                } else {
+                    h.video(bytes);
+                }
+            }
+        };
         let mut dbg_ts0 = 0i64;
         let mut dbg_ts1 = 0i64;
         // O rawvideo do FFmpeg não tem timestamps: a placa pode entregar mais ou
@@ -877,8 +909,8 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
                     frame_generation = frame_generation.saturating_add(1);
                     if dbg_ts0 == 0 { dbg_ts0 = ts; }
                     dbg_ts1 = ts;
-                    if let (Some(h), Some(bytes)) = (&hub, &last_frame) {
-                        h.video(bytes);
+                    if let Some(bytes) = &last_frame {
+                        publish(bytes);
                     }
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
@@ -893,8 +925,8 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
                         frame_generation = frame_generation.saturating_add(1);
                         if dbg_ts0 == 0 { dbg_ts0 = ts; }
                         dbg_ts1 = ts;
-                        if let (Some(h), Some(bytes)) = (&hub, &last_frame) {
-                            h.video(bytes);
+                        if let Some(bytes) = &last_frame {
+                            publish(bytes);
                         }
                     }
                     Err(std::sync::mpsc::TryRecvError::Empty)
@@ -2022,6 +2054,8 @@ pub struct Mode {
 fn fmt_name(g: &windows::core::GUID) -> String {
     if *g == MFVideoFormat_NV12 {
         "NV12".into()
+    } else if *g == MFVideoFormat_P010 {
+        "P010".into()
     } else if *g == MFVideoFormat_MJPG {
         "MJPEG".into()
     } else if *g == MFVideoFormat_YUY2 {
@@ -2086,7 +2120,13 @@ fn apply_color(mt: &IMFMediaType, cfg: &Config) -> windows::core::Result<()> {
         let full = cfg.color_range.eq_ignore_ascii_case("full");
         mt.SetUINT32(&MF_MT_YUV_MATRIX, if cs2020 { MFVideoTransferMatrix_BT2020_10.0 as u32 } else { MFVideoTransferMatrix_BT709.0 as u32 })?;
         mt.SetUINT32(&MF_MT_VIDEO_PRIMARIES, if cs2020 { MFVideoPrimaries_BT2020.0 as u32 } else { MFVideoPrimaries_BT709.0 as u32 })?;
-        mt.SetUINT32(&MF_MT_TRANSFER_FUNCTION, if cs2020 { MFVideoTransFunc_2020.0 as u32 } else { MFVideoTransFunc_709.0 as u32 })?;
+        let trc = match cfg.hdr.to_ascii_lowercase().as_str() {
+            "pq" | "hdr10" => MFVideoTransFunc_2084,
+            "hlg" => MFVideoTransFunc_HLG,
+            _ if cs2020 => MFVideoTransFunc_2020,
+            _ => MFVideoTransFunc_709,
+        };
+        mt.SetUINT32(&MF_MT_TRANSFER_FUNCTION, trc.0 as u32)?;
         mt.SetUINT32(&MF_MT_VIDEO_NOMINAL_RANGE, if full { MFNominalRange_0_255.0 as u32 } else { MFNominalRange_16_235.0 as u32 })?;
     }
     Ok(())
