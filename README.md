@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="uwc03-winui/Assets/videotape.png" alt="Logótipo Captura Studio" width="160">
+</p>
+
 # Captura Studio
 
 Gravador de captura de vídeo nativo para Windows — **código aberto** (MIT), com motor em **Rust**
