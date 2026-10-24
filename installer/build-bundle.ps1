@@ -4,7 +4,7 @@
     Junta:
       app\              (build WinUI Release)
       captura-rec.exe   (motor Rust Release)
-      ffmpeg\           (ffmpeg.exe + ffprobe.exe)
+      ffmpeg\           (ffmpeg.exe)
       install-captura.ps1 / uninstall-captura.ps1 / LEIA-ME.txt
 
     Depois distribui a pasta installer\bundle (ou o ZIP com -Zip) e o
@@ -36,7 +36,7 @@ if (-not $Version) {
         $xml = Get-Content $csproj -Raw
         if ($xml -match '<Version>([^<]+)</Version>') { $Version = $Matches[1].Trim() }
     }
-    if (-not $Version) { $Version = '1.1.0' }
+    if (-not $Version) { $Version = '1.1.1' }
 }
 $appSrc = Join-Path $root 'uwc03-winui\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64'
 $engineSrc = Join-Path $root 'uvc03-rec\target\release\captura-rec.exe'
@@ -64,9 +64,6 @@ if (-not $SkipFfmpeg) {
     $dstFf = Join-Path $OutDir 'ffmpeg'
     New-Item -ItemType Directory -Force $dstFf | Out-Null
     Copy-Item (Join-Path $ffSrc 'ffmpeg.exe') $dstFf -Force
-    if (Test-Path (Join-Path $ffSrc 'ffprobe.exe')) {
-        Copy-Item (Join-Path $ffSrc 'ffprobe.exe') $dstFf -Force
-    }
 }
 
 foreach ($n in @('install-captura.ps1','uninstall-captura.ps1')) {

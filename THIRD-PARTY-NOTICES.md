@@ -2,35 +2,34 @@
 
 O Captura Studio é distribuído sob a licença MIT (ver [LICENSE](LICENSE)). O instalador inclui
 componentes de terceiros com licenças próprias. O repositório **não** contém binários do FFmpeg;
-o ZIP do instalador publicado na release contém `ffmpeg.exe` e `ffprobe.exe`.
+o ZIP do instalador publicado na release contém `ffmpeg.exe`.
 
-## SignPath Foundation — assinatura de código
-
-Code signing provided by SignPath.io, certificate by SignPath Foundation.
-
-- https://signpath.org/
-- https://signpath.io/
-- A assinatura é aplicada às builds após aprovação da candidatura; builds anteriores (incluindo
-  a 1.0.2) podem estar não assinadas.
-
-## FFmpeg 9.0.2 — build `essentials_build-www.gyan.dev`
+## FFmpeg 9.0.2 — build `full_build-www.gyan.dev`
 
 - Copyright (c) 2000–2026 os autores do FFmpeg.
 - Este build foi configurado com `--enable-gpl --enable-version3` e é distribuído sob a
   **GNU General Public License v3** (GPLv3). O texto completo está em
   [LICENSE-FFMPEG-GPLv3.txt](LICENSE-FFMPEG-GPLv3.txt).
 - Configuração relevante: `--enable-gpl --enable-version3 --enable-libx264 --enable-libx265
-  --enable-nvenc --enable-libopus --enable-libmp3lame ...` (a lista completa aparece em
-  `ffmpeg -version`).
+  --enable-libsvtav1 --enable-librav1e --enable-libaom --enable-nvenc --enable-libopus
+  --enable-libmp3lame ...` (a lista completa aparece em `ffmpeg -version`).
+- O build inclui **SVT-AV1** (BSD-2-Clause), **rav1e** (BSD-2-Clause), **libaom** (BSD-2-Clause),
+  **LAME** (LGPL-2.0) e **libopus** (BSD-3-Clause) compilados no executável. O **FLAC** usa o
+  encoder nativo do FFmpeg (formato Xiph), não a biblioteca libFLAC.
 - Fontes e informação do build:
   - https://ffmpeg.org/
   - https://ffmpeg.org/legal.html
   - https://www.gyan.dev/ffmpeg/builds/
   - https://ffmpeg.org/download.html
+  - https://github.com/AOMediaCodec/SVT-AV1
+  - https://github.com/xiph/rav1e
+  - https://github.com/xiph/flac
+  - https://github.com/xiph/opus
+  - https://lame.sourceforge.io/
 - O código-fonte do FFmpeg e as instruções de build estão disponíveis nos links acima. O ZIP do
   instalador inclui este aviso e o texto da GPLv3; se precisares do código-fonte exato
   correspondente ao binário, usa a versão 9.0.2 e a configuração indicada.
-- O Captura Studio não altera o FFmpeg; chama os executáveis por linha de comandos.
+- O Captura Studio não altera o FFmpeg; chama o executável por linha de comandos.
 
 ## SVG Spinners (spinner do preview)
 

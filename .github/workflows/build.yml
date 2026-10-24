@@ -22,17 +22,15 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: FFmpeg (Gyan essentials)
+      - name: FFmpeg (Gyan full, SVT-AV1)
         shell: pwsh
         run: |
           $dst = Join-Path $env:LOCALAPPDATA 'CapturaStudio\ffmpeg'
           New-Item -ItemType Directory -Force $dst | Out-Null
-          Invoke-WebRequest 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip' -OutFile "$env:TEMP\ffmpeg.zip"
-          Expand-Archive "$env:TEMP\ffmpeg.zip" -DestinationPath "$env:TEMP\ffmpeg" -Force
-          $bin = Get-ChildItem "$env:TEMP\ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Invoke-WebRequest 'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full.7z' -OutFile "$env:TEMP\ffmpeg-full.7z"
+          7z x "$env:TEMP\ffmpeg-full.7z" "-o$env:TEMP\ffmpeg-full" -y | Out-Null
+          $bin = Get-ChildItem "$env:TEMP\ffmpeg-full" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
           Copy-Item $bin.FullName $dst -Force
-          $probe = Get-ChildItem "$env:TEMP\ffmpeg" -Recurse -Filter ffprobe.exe | Select-Object -First 1
-          if ($probe) { Copy-Item $probe.FullName $dst -Force }
 
       - name: Engine
         working-directory: uvc03-rec

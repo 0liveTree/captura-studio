@@ -4,10 +4,10 @@
 
 #define MyAppName "Captura Studio"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.1.0"
+  #define MyAppVersion "1.1.1"
 #endif
 #ifndef MyAppVersionInfo
-  #define MyAppVersionInfo "1.1.0.0"
+  #define MyAppVersionInfo "1.1.1.0"
 #endif
 #define MyAppPublisher "OliveTree"
 #define MyAppExeName "CapturaStudio.exe"
@@ -52,7 +52,6 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "bundle\app\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "bundle\captura-rec.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "bundle\ffmpeg\ffmpeg.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion
-Source: "bundle\ffmpeg\ffprobe.exe"; DestDir: "{app}\ffmpeg"; Flags: ignoreversion
 Source: "bundle\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "bundle\LICENSE-FFMPEG-GPLv3.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion

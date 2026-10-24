@@ -16,6 +16,12 @@
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}"/>
             </Style>
+            <Style x:Key="NavGroupStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="CharacterSpacing" Value="60"/>
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}"/>
+            </Style>
         </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -156,17 +162,19 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                                         <RowDefinition/><RowDefinition/><RowDefinition/>
+                                        <RowDefinition/><RowDefinition/>
                                     </Grid.RowDefinitions>
                                     <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="CODEC" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="CodecBox" HorizontalAlignment="Stretch" SelectionChanged="CodecBox_SelectionChanged"
-                                                  ToolTipService.ToolTip="H.264 é compatível com tudo; H.265 dá melhor qualidade por bitrate.">
-                                            <ComboBoxItem Content="H.264" IsSelected="True"/>
-                                            <ComboBoxItem Content="H.265 (HEVC)"/>
+                                                  ToolTipService.ToolTip="H.264 é compatível com tudo; H.265 e AV1 dão melhor qualidade por bitrate.">
+                                            <ComboBoxItem Content="H.264 (NVENC/x264)" IsSelected="True"/>
+                                            <ComboBoxItem Content="H.265 (NVENC/x265)"/>
+                                            <ComboBoxItem Content="AV1 (SVT-AV1)"/>
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
@@ -189,15 +197,15 @@
                                             <ComboBoxItem Content="50 Mbps"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Spacing="4">
                                         <TextBlock Text="ENCODER" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="HwBox" HorizontalAlignment="Stretch"
-                                                  ToolTipService.ToolTip="GPU usa NVENC/QSV/AMF quando disponível; CPU é mais lento mas sempre funciona.">
+                                                  ToolTipService.ToolTip="GPU usa NVENC (NVIDIA), QSV (Intel) ou AMF (AMD) quando disponível, testado no arranque; CPU (x264/x265) é mais lento mas sempre funciona.">
                                             <ComboBoxItem Content="GPU" IsSelected="True"/>
                                             <ComboBoxItem Content="CPU (software)"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
                                         <TextBlock Text="RATE CONTROL" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="RateBox" HorizontalAlignment="Stretch">
                                             <ComboBoxItem Content="Taxa de bits constante" IsSelected="True"/>
@@ -207,14 +215,14 @@
                                             <ComboBoxItem Content="Sem perdas"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                                    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="KEYFRAME (GOP)" Style="{StaticResource FieldLabelStyle}"/>
                                         <NumberBox x:Name="GopBox" HorizontalAlignment="Stretch"
                                                    Minimum="0" Maximum="30" SmallChange="1" LargeChange="5"
                                                    Value="2" SpinButtonPlacementMode="Compact"
                                                    ToolTipService.ToolTip="Intervalo entre keyframes em segundos; 0 = automático."/>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="3" Grid.Column="0" Spacing="4">
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4">
                                         <TextBlock Text="ESPAÇO DE COR" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="ColorSpaceBox" HorizontalAlignment="Stretch"
                                                   ToolTipService.ToolTip="Rec.709 para HD/SDR; Rec.2020 para HDR/4K.">
@@ -222,14 +230,14 @@
                                             <ComboBoxItem Content="Rec.2020"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-                                        <TextBlock Text="INTERVALO" Style="{StaticResource FieldLabelStyle}"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                                        <TextBlock Text="INTERVALO DE COR" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="ColorRangeBox" HorizontalAlignment="Stretch">
                                             <ComboBoxItem Content="Limitado (16-235)" IsSelected="True"/>
                                             <ComboBoxItem Content="Completo (0-255)"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="4" Grid.Column="0" Spacing="4">
+                                    <StackPanel Grid.Row="3" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="PRESET" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="PresetBox" HorizontalAlignment="Stretch"
                                                   ToolTipService.ToolTip="NVENC p1–p7 / CPU ultrafast–slow. p5·fast é o equilíbrio.">
@@ -242,7 +250,7 @@
                                             <ComboBoxItem Content="p7 · slow"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="4" Grid.Column="1" Spacing="4">
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
                                         <TextBlock Text="AFINAÇÃO" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="TuneBox" HorizontalAlignment="Stretch"
                                                   ToolTipService.ToolTip="Afinação do encoder; baixa latência reduz o atraso à custa de qualidade.">
@@ -252,7 +260,7 @@
                                             <ComboBoxItem Content="Sem afinação"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="5" Grid.Column="0" Spacing="4">
+                                    <StackPanel Grid.Row="3" Grid.Column="2" Spacing="4">
                                         <TextBlock Text="B-FRAMES" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="BframesBox" HorizontalAlignment="Stretch">
                                             <ComboBoxItem Content="0"/>
@@ -262,7 +270,7 @@
                                             <ComboBoxItem Content="4"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="6" Grid.Column="0" Spacing="4">
+                                    <StackPanel Grid.Row="4" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="MULTIPASS" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="MultipassBox" HorizontalAlignment="Stretch"
                                                   ToolTipService.ToolTip="Só NVENC; duas passagens dão melhor qualidade ao mesmo bitrate.">
@@ -271,13 +279,9 @@
                                             <ComboBoxItem Content="Completa"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <Grid Grid.Row="5" Grid.Column="1" ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="CQ (QUALIDADE)" Style="{StaticResource FieldLabelStyle}"
-                                                   VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Column="1" x:Name="CqBox" HorizontalAlignment="Stretch"
+                                    <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="CQ (QUALIDADE)" Style="{StaticResource FieldLabelStyle}"/>
+                                        <ComboBox x:Name="CqBox" HorizontalAlignment="Stretch"
                                                   MaxDropDownHeight="120"
                                                   ToolTipService.ToolTip="0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática.">
                                             <ComboBoxItem Content="18"/>
@@ -288,12 +292,11 @@
                                             <ComboBoxItem Content="28"/>
                                             <ComboBoxItem Content="32"/>
                                         </ComboBox>
-                                    </Grid>
-                                    <TextBlock x:Name="QualityHint" Grid.Row="6" Grid.Column="1"
-                                               FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               Text="CQ: 0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática. Aplica-se a CQP/qualidade alvo."/>
+                                    </StackPanel>
                                 </Grid>
+                                <TextBlock x:Name="QualityHint" FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Text="CQ: 0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática. Aplica-se a CQP/qualidade alvo."/>
                             </StackPanel>
                         </Border>
 
@@ -313,17 +316,17 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                        <RowDefinition/><RowDefinition/><RowDefinition/>
                                     </Grid.RowDefinitions>
                                     <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="CODIFICADOR DE ÁUDIO" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="AudioModeBox" HorizontalAlignment="Stretch" SelectionChanged="AudioModeBox_SelectionChanged">
                                             <ComboBoxItem Content="Sem áudio"/>
-                                            <ComboBoxItem Content="AAC" IsSelected="True"/>
-                                            <ComboBoxItem Content="PCM"/>
-                                            <ComboBoxItem Content="MP3 (FFmpeg)"/>
+                                            <ComboBoxItem Content="AAC (FFmpeg)" IsSelected="True"/>
+                                            <ComboBoxItem Content="PCM (sem compressão)"/>
+                                            <ComboBoxItem Content="MP3 (LAME)"/>
                                             <ComboBoxItem Content="FLAC (FFmpeg)"/>
-                                            <ComboBoxItem Content="Opus (FFmpeg)"/>
+                                            <ComboBoxItem Content="Opus (libopus)"/>
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
@@ -360,18 +363,20 @@
                                             <ComboBoxItem Content="32-bit"/>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Spacing="4">
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
                                         <Grid>
                                             <TextBlock Text="NÍVEL" Style="{StaticResource FieldLabelStyle}"/>
                                             <TextBlock x:Name="AudioMeterText" Text="-60 dB"
                                                        HorizontalAlignment="Right" FontSize="11"
                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         </Grid>
-                                        <Border x:Name="AudioMeterTrack" Height="8" CornerRadius="4"
-                                                Background="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                        <Border x:Name="AudioMeterTrack" Height="10" CornerRadius="5"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                                BorderThickness="1"
                                                 SizeChanged="AudioMeterTrack_SizeChanged">
                                             <Border x:Name="AudioMeterFill" HorizontalAlignment="Left"
-                                                    Width="0" CornerRadius="4">
+                                                    Width="0" CornerRadius="5">
                                                 <Border.Background>
                                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                                         <GradientStop Color="#2E7D32" Offset="0"/>
@@ -595,10 +600,10 @@
         </Grid>
 
         <Grid x:Name="SettingsOverlay" Grid.RowSpan="2" Visibility="Collapsed" Background="#CC000000">
-            <Border x:Name="SettingsPanel" Width="940" Height="640" CornerRadius="12"
+            <Border x:Name="SettingsPanel" Width="1080" MaxHeight="1000" CornerRadius="14"
                     Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                    HorizontalAlignment="Center" VerticalAlignment="Stretch" Margin="0,48">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -606,40 +611,45 @@
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="230"/>
+                            <ColumnDefinition Width="250"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel Padding="20,20,12,20" Spacing="4">
-                            <TextBlock Text="Definições" FontSize="22" FontWeight="SemiBold" Margin="6,0,0,14"/>
-                            <ListView x:Name="SettingsNav" SelectionMode="Single" SelectionChanged="SettingsNav_SelectionChanged">
-                                <ListViewItem>
+                        <StackPanel Padding="24,24,14,24">
+                            <TextBlock Text="Definições" FontSize="24" FontWeight="SemiBold" Margin="6,0,0,18"/>
+                            <TextBlock Text="CONFIGURAÇÃO" Style="{StaticResource NavGroupStyle}" Margin="10,0,0,6"/>
+                            <ListView x:Name="SettingsNav" SelectionMode="Single"
+                                      SelectionChanged="SettingsNav_SelectionChanged">
+                                <ListViewItem Tag="rec">
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon Glyph="&#xE7C3;" FontSize="14"/>
                                         <TextBlock Text="Gravação"/>
                                     </StackPanel>
                                 </ListViewItem>
-                                <ListViewItem>
+                                <ListViewItem Tag="appearance">
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon Glyph="&#xE790;" FontSize="14"/>
                                         <TextBlock Text="Aparência"/>
                                     </StackPanel>
                                 </ListViewItem>
-
-                                <ListViewItem>
-                                    <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <FontIcon Glyph="&#xE946;" FontSize="14"/>
-                                        <TextBlock Text="Sobre"/>
-                                    </StackPanel>
-                                </ListViewItem>
-                                <ListViewItem>
+                            </ListView>
+                            <TextBlock Text="APLICAÇÃO" Style="{StaticResource NavGroupStyle}" Margin="10,18,0,6"/>
+                            <ListView x:Name="SettingsNavInfo" SelectionMode="Single"
+                                      SelectionChanged="SettingsNav_SelectionChanged">
+                                <ListViewItem Tag="diag">
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <FontIcon Glyph="&#xE9D9;" FontSize="14"/>
                                         <TextBlock Text="Diagnóstico"/>
                                     </StackPanel>
                                 </ListViewItem>
+                                <ListViewItem Tag="about">
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <FontIcon Glyph="&#xE946;" FontSize="14"/>
+                                        <TextBlock Text="Sobre"/>
+                                    </StackPanel>
+                                </ListViewItem>
                             </ListView>
                         </StackPanel>
-                        <ScrollViewer Grid.Column="1" Padding="24,20,24,20" HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer Grid.Column="1" Padding="32,24,32,24" HorizontalScrollBarVisibility="Disabled">
                             <Grid>
                                 <StackPanel x:Name="SecGravacao" Spacing="12">
                                     <Grid ColumnSpacing="12">
@@ -702,7 +712,7 @@
                                                 <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                                                     <TextBlock Text="Codec" FontSize="12"/>
                                                     <ComboBox x:Name="CodecBox2" HorizontalAlignment="Stretch">
-                                                        <ComboBoxItem Content="H.264"/><ComboBoxItem Content="H.265 (HEVC)"/>
+                                                        <ComboBoxItem Content="H.264 (NVENC/x264)"/><ComboBoxItem Content="H.265 (NVENC/x265)"/><ComboBoxItem Content="AV1 (SVT-AV1)"/>
                                                     </ComboBox>
                                                 </StackPanel>
                                                 <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
@@ -869,9 +879,9 @@
                                                 <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                                                     <TextBlock Text="Codificador de áudio" FontSize="12"/>
                                                     <ComboBox x:Name="AudioModeBox2" HorizontalAlignment="Stretch">
-                                                        <ComboBoxItem Content="Sem áudio"/><ComboBoxItem Content="AAC"/>
-                                                        <ComboBoxItem Content="PCM"/><ComboBoxItem Content="MP3 (FFmpeg)"/>
-                                                        <ComboBoxItem Content="FLAC (FFmpeg)"/><ComboBoxItem Content="Opus (FFmpeg)"/>
+                                                        <ComboBoxItem Content="Sem áudio"/><ComboBoxItem Content="AAC (FFmpeg)"/>
+                                                        <ComboBoxItem Content="PCM (sem compressão)"/><ComboBoxItem Content="MP3 (LAME)"/>
+                                                        <ComboBoxItem Content="FLAC (FFmpeg)"/><ComboBoxItem Content="Opus (libopus)"/>
                                                     </ComboBox>
                                                 </StackPanel>
                                                 <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
@@ -1206,19 +1216,12 @@
                         </ScrollViewer>
                     </Grid>
                     <Border Grid.Row="1" BorderThickness="0,1,0,0"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" Padding="20,14">
-                        <Grid>
-                            <StackPanel x:Name="SettingsEditActions" Orientation="Horizontal"
-                                        HorizontalAlignment="Right" Spacing="12">
-                                <Button Content="Cancelar" Width="120" Click="SettingsCancel_Click"/>
-                                <Button Content="Guardar" Width="120" Style="{ThemeResource AccentButtonStyle}"
-                                        Click="SettingsSave_Click"/>
-                            </StackPanel>
-                            <StackPanel x:Name="SettingsAboutActions" Orientation="Horizontal"
-                                        HorizontalAlignment="Right" Visibility="Collapsed">
-                                <Button Content="Fechar" Width="120" Click="SettingsCancel_Click"/>
-                            </StackPanel>
-                        </Grid>
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" Padding="32,16">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                            <Button Content="Fechar" Width="120" Click="SettingsCancel_Click"/>
+                            <Button Content="Guardar" Width="120" Style="{ThemeResource AccentButtonStyle}"
+                                    Click="SettingsSave_Click"/>
+                        </StackPanel>
                     </Border>
                 </Grid>
             </Border>

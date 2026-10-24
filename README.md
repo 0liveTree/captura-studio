@@ -16,16 +16,18 @@ passar por MJPEG nem por um segundo leitor.
 - Abre qualquer placa UVC / webcam via Media Foundation (`IMFSourceReader`)
 - Formatos de entrada: **Auto, NV12, MJPEG, YUY2, RGB32**
 - Resoluções e FPS **lidos da própria placa** (`--caps`)
-- Codificação **H.264** (baseline/main/high) ou **H.265/HEVC**
-- **GPU (hardware)** ou CPU — NVENC/QSV/AMF quando disponíveis, com fallback software
+- Codificação **H.264 (NVENC/x264)**, **H.265 (NVENC/x265)** ou **AV1 (SVT-AV1)**
+- **GPU (hardware)** ou CPU — NVENC (NVIDIA), QSV (Intel) ou AMF (AMD), testados no arranque,
+  com fallback automático para software
 - **Pipeline FFmpeg**: o motor entrega NV12 em bruto e o FFmpeg codifica com
-  `h264_nvenc`/`hevc_nvenc` (GPU) ou `libx264`/`libx265` (CPU), com mux de áudio no fim
+  `h264_nvenc`/`hevc_nvenc`/`libx264`/`libx265`/`libsvtav1`, com mux de áudio no fim
 - Painel do codificador: **predefinição p1–p7**, **afinação**, **B-frames**, **multipass**,
   **controlo da frequência** (CBR, CQP, VBR, VBR com qualidade alvo, sem perdas),
   **GOP em segundos (0 = automático)** e **CQ**
 - Rate control, bitrate, GOP/keyframe configuráveis também no caminho Media Foundation
 - Perfis de cor: **Rec.709 / Rec.2020** e intervalo **limitado/completo**
-- Áudio **AAC**, **PCM** (16/24/32-bit; 32 depende da placa, com fallback automático), **MP3**, **FLAC** ou **Opus** (os últimos via FFmpeg)
+- Áudio **AAC (FFmpeg)**, **PCM** (16/24/32-bit; 32 depende da placa, com fallback automático),
+  **MP3 (LAME)**, **FLAC (FFmpeg)** ou **Opus (libopus)**
 - Contentores: **MP4, MKV, TS**
 - **Divisão automática** em segmentos (5/10/30/60 min)
 - **Modo portátil** (definições/perfis/motor/FFmpeg ao lado do bundle) e **proteção de disco**
@@ -48,9 +50,9 @@ passar por MJPEG nem por um segundo leitor.
 - [Rust](https://rustup.rs) stable (toolchain MSVC) para o motor
 - **.NET 8 SDK** e **Visual Studio 2022 Build Tools** com as ferramentas de WinUI para a app
 - **Windows App SDK 1.7** (vem por NuGet; a app é self-contained)
-- **FFmpeg** com `h264_nvenc`/`hevc_nvenc` ou `libx264`/`libx265` — opcional para o caminho
-  Media Foundation, necessário para a pipeline FFmpeg. O instalador inclui um build GPLv3
-  (ver [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
+- **FFmpeg** com `h264_nvenc`/`hevc_nvenc`, `libx264`/`libx265` e `libsvtav1` — opcional para
+  o caminho Media Foundation, necessário para a pipeline FFmpeg. O instalador inclui um build
+  GPLv3 completo (ver [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
 - **Inno Setup 6** — opcional; só para gerar o `Setup.exe`.
 
 ## Build
@@ -75,29 +77,26 @@ O motor fica em `uvc03-rec\target\release\captura-rec.exe`.
 ### Instalador (Setup.exe)
 
 Requer **Inno Setup 6** (`winget install --id JRSoftware.InnoSetup -e`). O script usa
-`installer\bundle` ou extrai `installer\CapturaStudio-1.1.0.zip`; se nenhum existir, corre
+`installer\bundle` ou extrai `installer\CapturaStudio-1.1.1.zip`; se nenhum existir, corre
 `build-bundle.ps1` (que precisa da app e do motor compilados).
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```
 
-Gera `installer\out\CapturaStudio-1.1.0-Setup.exe` e `installer\out\latest.json`.
+Gera `installer\out\CapturaStudio-1.1.1-Setup.exe` e `installer\out\latest.json`.
 
 ## Assinatura
 
-O Captura Studio usa a **SignPath Foundation** para assinatura de código.
-
-> Code signing provided by SignPath.io, certificate by SignPath Foundation.
-
-Enquanto a candidatura está em aprovação, a build 1.1.0 e anteriores podem estar **não
-assinadas**; nesse caso o Windows SmartScreen pode mostrar um aviso.
+A build 1.1.1 é distribuída **sem assinatura de código** — a candidatura à SignPath Foundation não
+foi aprovada. O Windows SmartScreen pode mostrar um aviso; podes confirmar a integridade pelo
+SHA-256 publicado na release.
 
 ## Instalação
 
 ### A partir do instalador (recomendado)
 
-Descarrega `CapturaStudio-1.1.0-Setup.exe` na [página de Releases](../../releases/latest) e
+Descarrega `CapturaStudio-1.1.1-Setup.exe` na [página de Releases](../../releases/latest) e
 executa. O Setup instala por utilizador em `%LOCALAPPDATA%\CapturaStudio`, **sem admin**, cria
 o atalho no Menu Iniciar e regista a desinstalação. `settings.json` e `profiles.json` são
 preservados.
@@ -141,8 +140,8 @@ https://github.com/0liveTree/captura-studio/releases/latest/download/latest.json
   `installer\build-installer.ps1` gera os dois em `installer\out`:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 1.1.0 -Notes "..."
-gh release create v1.1.0 "installer\out\CapturaStudio-1.1.0-Setup.exe" "installer\out\latest.json" --title "Captura Studio 1.1.0" --notes "..."
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 1.1.1 -Notes "..."
+gh release create v1.1.1 "installer\out\CapturaStudio-1.1.1-Setup.exe" "installer\out\latest.json" --title "Captura Studio 1.1.1" --notes "..."
 ```
 
 - O Setup não está assinado; o SmartScreen pode avisar.

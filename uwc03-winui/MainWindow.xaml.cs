@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -53,15 +53,15 @@ public sealed class WinUISettings
     public string AudioDevice  { get; set; } = "";
     public int    Codec        { get; set; } = 0;   // 0=H.264  1=HEVC
     public int    Profile      { get; set; } = 2;   // 0=base 1=main 2=high
-    public int    Bitrate      { get; set; } = 2;   // índice em Bps[]
+    public int    Bitrate      { get; set; } = 2;   // Ã­ndice em Bps[]
     public int    Hw           { get; set; } = 0;   // 0=GPU 1=CPU
     public int    Rate         { get; set; } = 0;   // 0=CBR 1=VBR
-    public int    Gop          { get; set; } = 1;   // índice em Gops[]
+    public int    Gop          { get; set; } = 1;   // Ã­ndice em Gops[]
     public int    AudioMode    { get; set; } = 1;   // 0=none 1=AAC 2=PCM
-    public int    Abr          { get; set; } = 1;   // índice em Abr[]
+    public int    Abr          { get; set; } = 1;   // Ã­ndice em Abr[]
     public int    Container    { get; set; } = 0;   // 0=mp4 1=mkv 2=ts
-    public int    Duration     { get; set; } = 0;   // índice em Durs[]
-    public int    Split        { get; set; } = 0;   // índice em Splits[]
+    public int    Duration     { get; set; } = 0;   // Ã­ndice em Durs[]
+    public int    Split        { get; set; } = 0;   // Ã­ndice em Splits[]
     public int    Res          { get; set; } = 0;
     public int    Fps          { get; set; } = 2;
     public int    Format       { get; set; } = 0;
@@ -74,7 +74,7 @@ public sealed class WinUISettings
     public int    RateMode     { get; set; } = -1;  // 0=CBR 1=CQP 2=VBR 3=VBR alvo 4=sem perdas (-1 migra de Rate)
     public double GopSeconds   { get; set; } = -1;  // -1 migra de Gop
     public int    Preset       { get; set; } = 4;   // 0..6
-    public int    Tune         { get; set; } = 0;   // 0=qualidade 1=baixa lat. 2=ultra baixa 3=sem afinação
+    public int    Tune         { get; set; } = 0;   // 0=qualidade 1=baixa lat. 2=ultra baixa 3=sem afinaÃ§Ã£o
     public int    Bframes      { get; set; } = 3;   // 0..4
     public int    Multipass    { get; set; } = 0;   // 0=desligado 1=uma passagem 2=completa
     public int    Cq           { get; set; } = 23;  // valor 18..32
@@ -156,7 +156,7 @@ public sealed class CaptureProfile
 
 public sealed partial class MainWindow : Window
 {
-    // --- tabelas de opções estáticas ---
+    // --- tabelas de opÃ§Ãµes estÃ¡ticas ---
     private static readonly string[] Exts    = { "mp4", "mkv", "ts" };
     private static readonly (uint W, uint H)[] ResList =
     {
@@ -181,7 +181,7 @@ public sealed partial class MainWindow : Window
     private static readonly int[]    CqValues = { 18, 20, 22, 23, 25, 28, 32 };
     private static readonly int[]    Bframes = { 0, 1, 2, 3, 4 };
 
-    // --- estado de gravação ---
+    // --- estado de gravaÃ§Ã£o ---
     private Process?  _proc;
     private DateTime  _start;
     private DateTime  _waitStart;
@@ -207,7 +207,7 @@ public sealed partial class MainWindow : Window
     private readonly StringBuilder _stdout = new();
     private readonly object _stdoutLock = new();
 
-    // --- pipeline raw + FFmpeg (opção B) ---
+    // --- pipeline raw + FFmpeg (opÃ§Ã£o B) ---
     private Process?  _ffProc;
     private Task?     _pipeTask;
     private string?   _rawVideo;
@@ -226,19 +226,27 @@ public sealed partial class MainWindow : Window
     private bool?     _hasNvencHevc;
     private bool?     _hasX264;
     private bool?     _hasX265;
+    private bool?     _hasSvtAv1;
+    private bool?     _hasNvencAv1;
+    private bool?     _hasQsvH264;
+    private bool?     _hasQsvHevc;
+    private bool?     _hasQsvAv1;
+    private bool?     _hasAmfH264;
+    private bool?     _hasAmfHevc;
+    private bool?     _hasAmfAv1;
 
     // --- perfis/presets ---
     private List<CaptureProfile> _profilePresets = new();
     private bool _loadingProfilePresets;
 
-    // --- atualizações ---
+    // --- atualizaÃ§Ãµes ---
     private string _updateUrl = UpdateDefaults.ManifestUrl;
     private bool _updateAuto = true;
     private bool _updateChecking;
     private bool _startupUpdateChecked;
     private Action? _notifyAction;
     private static string AppVersion =>
-        typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.1.0";
+        typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.1.1";
 
     // --- atalhos globais (Ctrl+Alt+F9/F10) ---
     private IntPtr _hotkeyHwnd;
@@ -465,7 +473,7 @@ public sealed partial class MainWindow : Window
         PreviewControls.Background  = on ? new SolidColorBrush(Windows.UI.Color.FromArgb(170, 0, 0, 0)) : null;
         try
         {
-            ToolTipService.SetToolTip(BtnFull, on ? "Sair do ecrã inteiro" : "Ecrã inteiro");
+            ToolTipService.SetToolTip(BtnFull, on ? "Sair do ecrÃ£ inteiro" : "EcrÃ£ inteiro");
             if (FullIcon != null) FullIcon.Glyph = on ? "\uE73F" : "\uE740";
         }
         catch { }
@@ -551,16 +559,16 @@ public sealed partial class MainWindow : Window
         _timer.Tick += (_, _) => Tick();
         _notifyTimer.Tick += (_, _) => { _notifyTimer.Stop(); NotifyBar.Visibility = Visibility.Collapsed; _notifyAction = null; };
 
-        // Em WinUI 3, o evento Closed é disparado antes do processo sair,
-        // mas o handler tem de ser síncrono para garantir que SaveSettings() corre.
-        // Usamos AppWindow.Closing (cancelável e síncrono) em vez de Closed.
+        // Em WinUI 3, o evento Closed Ã© disparado antes do processo sair,
+        // mas o handler tem de ser sÃ­ncrono para garantir que SaveSettings() corre.
+        // Usamos AppWindow.Closing (cancelÃ¡vel e sÃ­ncrono) em vez de Closed.
         AppWindow.Closing += (_, args) =>
         {
             SaveSettings();
             if (_proc != null)
             {
-                // Fechar a meio de uma gravação (raw ou MF): cancelar o fecho, parar
-                // o motor e só fechar quando ele terminar/finalizar o ficheiro.
+                // Fechar a meio de uma gravaÃ§Ã£o (raw ou MF): cancelar o fecho, parar
+                // o motor e sÃ³ fechar quando ele terminar/finalizar o ficheiro.
                 args.Cancel = true;
                 _closingAfterRec = true;
                 StopRec();
@@ -603,7 +611,7 @@ public sealed partial class MainWindow : Window
         RateBox.SelectionChanged += (_, _) => UpdateVideoFields();
         RateBox2.SelectionChanged += (_, _) => UpdateEncoderFields2();
         EncoderBox2.SelectionChanged += (_, _) => UpdateEncoderFields2();
-        QualityHint.Text = Loc.T("CQ: 0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática. Aplica-se a CQP/qualidade alvo.");
+        QualityHint.Text = Loc.T("CQ: 0 = mÃ¡xima qualidade, 51 = mÃ­nima; 18â€“32 Ã© a faixa prÃ¡tica. Aplica-se a CQP/qualidade alvo.");
         FolderBox.TextChanged += (_, _) => SaveSettings();
         _cursorTimer.Interval = TimeSpan.FromMilliseconds(200);
         _cursorTimer.Tick += (_, _) =>
@@ -629,7 +637,7 @@ public sealed partial class MainWindow : Window
         if (Content is UIElement rootEl)
         {
         }
-        // Carregar dispositivos de forma assíncrona (UI não bloca)
+        // Carregar dispositivos de forma assÃ­ncrona (UI nÃ£o bloca)
         Activated += (_, e) =>
         {
             try
@@ -662,7 +670,7 @@ public sealed partial class MainWindow : Window
     }
 
     // -----------------------------------------------------------------------
-    // Enumeração de dispositivos (--list e --caps N)
+    // EnumeraÃ§Ã£o de dispositivos (--list e --caps N)
     // -----------------------------------------------------------------------
 
     private async Task LoadDevicesAsync()
@@ -674,7 +682,7 @@ public sealed partial class MainWindow : Window
         {
             if (!File.Exists(ExePath))
             {
-                Log("captura-rec.exe não encontrado em: " + ExePath);
+                Log("captura-rec.exe nÃ£o encontrado em: " + ExePath);
                 Log("Executa scripts\\deploy.ps1 para instalar o motor.");
                 return;
             }
@@ -719,13 +727,13 @@ public sealed partial class MainWindow : Window
             foreach (var d in audios) AudioBox.Items.Add(d);
             SelectByName(AudioBox, keepAudio);
 
-            Log($"Dispositivos: {videos.Count} vídeo, {audios.Count} áudio.");
+            Log($"Dispositivos: {videos.Count} vÃ­deo, {audios.Count} Ã¡udio.");
 
-            // Primeiro os modos reais da placa, depois as definições (Res/Fps
-            // índices só fazem sentido contra a lista de caps).
+            // Primeiro os modos reais da placa, depois as definiÃ§Ãµes (Res/Fps
+            // Ã­ndices sÃ³ fazem sentido contra a lista de caps).
             await LoadModesAsync();
-            // As definições só se aplicam no arranque; um refresh de dispositivos
-            // (ao reactivar a janela) não pode repor resolução/fps/encoder.
+            // As definiÃ§Ãµes sÃ³ se aplicam no arranque; um refresh de dispositivos
+            // (ao reactivar a janela) nÃ£o pode repor resoluÃ§Ã£o/fps/encoder.
             if (!_settingsApplied)
             {
                 ApplySettings();
@@ -843,7 +851,7 @@ public sealed partial class MainWindow : Window
         _pvProc = Process.Start(psi);
         _pvCts = new CancellationTokenSource();
         var ct = _pvCts.Token;
-        if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Parar pré-visualização"); else BtnPreview.Content = Loc.T("Parar pré-visualização");
+        if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Parar prÃ©-visualizaÃ§Ã£o"); else BtnPreview.Content = Loc.T("Parar prÃ©-visualizaÃ§Ã£o");
         ShowPreviewLoading("A ligar...");
         _ = Task.Run(() => PreviewVideoLoop(ct));
         if (PreviewAudioSwitch.IsOn)
@@ -878,11 +886,11 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            InfoDevice.Text = (VideoBox.SelectedItem as DeviceItem)?.Name ?? "—";
+            InfoDevice.Text = (VideoBox.SelectedItem as DeviceItem)?.Name ?? "â€”";
             var r = GetSelRes();
             var f = GetSelFps();
-            InfoMode.Text = $"{r.W}x{r.H} @ {f} fps · {((ComboBoxItem)FormatBox.SelectedItem).Content}";
-            InfoAudio.Text = (AudioBox.SelectedItem as DeviceItem)?.Name ?? "—";
+            InfoMode.Text = $"{r.W}x{r.H} @ {f} fps Â· {((ComboBoxItem)FormatBox.SelectedItem).Content}";
+            InfoAudio.Text = (AudioBox.SelectedItem as DeviceItem)?.Name ?? "â€”";
         }
         catch { }
     }
@@ -912,8 +920,8 @@ public sealed partial class MainWindow : Window
         if (VideoBox.SelectedItem is not DeviceItem vd) return;
 
         string output = await RunEngineAsync("--caps", vd.Index.ToString());
-        // Várias chamadas podem sobrepor-se (mudanças de dispositivo/definições):
-        // só a mais recente aplica o resultado.
+        // VÃ¡rias chamadas podem sobrepor-se (mudanÃ§as de dispositivo/definiÃ§Ãµes):
+        // sÃ³ a mais recente aplica o resultado.
         if (token != _modesToken) return;
         var modes = new List<(uint W, uint H, uint Fps)>();
         foreach (var raw in output.Split('\n'))
@@ -928,7 +936,7 @@ public sealed partial class MainWindow : Window
         }
         if (modes.Count == 0)
         {
-            Log("Modos: a placa não reportou modos; a manter a lista genérica.");
+            Log("Modos: a placa nÃ£o reportou modos; a manter a lista genÃ©rica.");
             return;
         }
         _modes = modes;
@@ -954,7 +962,7 @@ public sealed partial class MainWindow : Window
                 if ((FpsBox.Items[i] as ComboBoxItem)?.Content?.ToString() == _savedFpsText) { FpsBox.SelectedIndex = i; break; }
             _savedFpsText = "";
         }
-        Log($"Modos de '{vd.Name}': {_capRes.Count} resoluções.");
+        Log($"Modos de '{vd.Name}': {_capRes.Count} resoluÃ§Ãµes.");
     }
 
     private void UpdateFpsForRes()
@@ -1028,7 +1036,7 @@ public sealed partial class MainWindow : Window
         }
         if (tcp == null)
         {
-            DispatcherQueue.TryEnqueue(() => ShowPreviewMessage("Sem ligação ao motor (dispositivo ocupado?)"));
+            DispatcherQueue.TryEnqueue(() => ShowPreviewMessage("Sem ligaÃ§Ã£o ao motor (dispositivo ocupado?)"));
             return;
         }
         _pvVideo = tcp;
@@ -1188,7 +1196,7 @@ public sealed partial class MainWindow : Window
         _pvProc?.Dispose();
         _pvProc = null;
         _pvBmp = null;
-        if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Pré-visualizar"); else BtnPreview.Content = Loc.T("Pré-visualizar");
+        if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("PrÃ©-visualizar"); else BtnPreview.Content = Loc.T("PrÃ©-visualizar");
         PreviewImage.Source = null;
         ShowPreviewMessage("Sem preview");
     }
@@ -1201,19 +1209,20 @@ public sealed partial class MainWindow : Window
 
     private void ShowSettings()
     {
-        // Aproveita a altura da janela: o cartão Vídeo tem agora as opções do
+        // Aproveita a altura da janela: o cartÃ£o VÃ­deo tem agora as opÃ§Ãµes do
         // codificador e, a 640 px, ficavam abaixo da dobra.
         try
         {
             double h = RootGrid.ActualHeight;
-            if (h > 400) SettingsPanel.Height = Math.Clamp(h - 80, 560, 860);
+            if (h > 400) SettingsPanel.Height = Math.Clamp(h - 80, 560, 1000);
+            if (DiagText != null) DiagText.Height = Math.Max(280, SettingsPanel.Height - 260);
         }
         catch { }
         FolderBox2.Text = FolderBox.Text;
         FileTemplateBox.Text = _fileTemplate;
         UpdateUrlBox.Text = _updateUrl;
         UpdateAutoSwitch.IsOn = _updateAuto;
-        UpdateCurrentText.Text = Loc.T("Versão instalada:") + " " + AppVersion;
+        UpdateCurrentText.Text = Loc.T("VersÃ£o instalada:") + " " + AppVersion;
         UpdateStatusText.Text = "";
         FormatBox2.SelectedIndex = Math.Max(0, FormatBox.SelectedIndex);
         ContBox2.SelectedIndex = Math.Max(0, ContBox.SelectedIndex);
@@ -1255,17 +1264,17 @@ public sealed partial class MainWindow : Window
         string ver = asm.GetName().Version?.ToString(3) ?? "1.0.0";
         string build = File.GetLastWriteTime(asm.Location).ToString("dd/MM/yyyy");
 
-        AboutText.Text = Loc.T("Captura Studio é um gravador de captura de vídeo nativo para Windows, de código aberto, escrito em Rust e WinUI 3.");
-        VersionText.Text = Loc.T("Versão") + " " + ver + "  ·  " + Loc.T("Compilação") + " " + build;
-        LicenseText.Text = Loc.T("Licença MIT · código aberto — podes usar, modificar e distribuir, mantendo o aviso de copyright.");
-        CreditsText.Text = Loc.T("© 2026 OliveTree · Feito em Portugal com amor e carinho ❤️");
+        AboutText.Text = Loc.T("Captura Studio Ã© um gravador de captura de vÃ­deo nativo para Windows, de cÃ³digo aberto, escrito em Rust e WinUI 3.");
+        VersionText.Text = Loc.T("VersÃ£o") + " " + ver + "  Â·  " + Loc.T("CompilaÃ§Ã£o") + " " + build;
+        LicenseText.Text = Loc.T("LicenÃ§a MIT Â· cÃ³digo aberto â€” podes usar, modificar e distribuir, mantendo o aviso de copyright.");
+        CreditsText.Text = Loc.T("Â© 2026 OliveTree Â· Feito em Portugal com amor e carinho â¤ï¸");
 
         BuildTechCards(TechList);
         BuildContributionCards(ModelsList);
 
+        SettingsNavInfo.SelectedIndex = -1;
         SettingsNav.SelectedIndex = 0;
-        SettingsEditActions.Visibility = Visibility.Visible;
-        SettingsAboutActions.Visibility = Visibility.Collapsed;
+        ShowSettingsSection("rec");
         SettingsOverlay.Visibility = Visibility.Visible;
     }
 
@@ -1356,7 +1365,7 @@ public sealed partial class MainWindow : Window
     {
         var asm = typeof(MainWindow).Assembly;
         string ver = asm.GetName().Version?.ToString(3) ?? "1.0.0";
-        string engine = "—";
+        string engine = "â€”";
         try
         {
             engine = (System.Diagnostics.FileVersionInfo.GetVersionInfo(ExePath).FileVersion ?? "").Trim();
@@ -1366,12 +1375,12 @@ public sealed partial class MainWindow : Window
         catch { }
         var rows = new (string Name, string Ver, string Role)[]
         {
-            ("Captura Studio", ver, "Aplicação (WinUI 3)"),
+            ("Captura Studio", ver, "AplicaÃ§Ã£o (WinUI 3)"),
             ("Windows App SDK", "1.7.260224002", "Interface Fluent"),
             (".NET", "8.0", "Runtime"),
-            ("captura-rec (Rust)", engine, "Captura e codificação via Media Foundation"),
-            ("NAudio", "2.2.1", "Reprodução do áudio do preview"),
-            ("FFmpeg", _ffmpegVersion ?? Loc.T("não encontrado"), "MP3/FLAC e remux"),
+            ("captura-rec (Rust)", engine, "Captura e codificaÃ§Ã£o via Media Foundation"),
+            ("NAudio", "2.2.1", "ReproduÃ§Ã£o do Ã¡udio do preview"),
+            ("FFmpeg", _ffmpegVersion ?? Loc.T("nÃ£o encontrado"), "MP3/FLAC e remux"),
             ("Media Foundation", "Windows", "Captura, cores e codecs")
         };
         target.Children.Clear();
@@ -1396,12 +1405,12 @@ public sealed partial class MainWindow : Window
     {
         var entries = new (string Provider, string Scope, string Identity, string Details)[]
         {
-            ("DeepSeek", "Motor + pipeline raw/FFmpeg", "DeepSeek Harness · DeepSeek-V4.1-Flash · 4.1",
-                "Implementação principal: motor Rust/Media Foundation e pipeline raw NV12 + FFmpeg (opção B); áudio WAV e sincronização A/V; preview em processo; painel do codificador; persistência de definições e idioma; interface WinUI 3 base; cores Rec.709/2020; resolução/FPS lidos da placa."),
-            ("Anthropic", "Revisão · sem código", "Antigravity (Google) · Claude Sonnet 4.6 (Thinking) · 4.6",
-                "Revisão do handoff e diagnóstico da falha de arranque WinUI relacionada com PRI/XamlParseException."),
-            ("OpenAI", "Interface + UVC03 (raw)", "Codex · GPT-6",
-                "Interface: cartões organizados para destino, vídeo e áudio; Definições agrupadas; página Sobre, volume, ações por separador e traduções revistas. UVC03 no pipeline raw/FFmpeg: fila limitada a 2 frames, saída CFR, contagem de frames recebidos/descartados/repetidos, espera até 40 s pelo primeiro frame e deteção de pausa após 2,5 s; até duas reaberturas do leitor, com aviso na UI e fecho da gravação se não recuperar.")
+            ("DeepSeek", "Motor + pipeline raw/FFmpeg", "DeepSeek Harness Â· DeepSeek-V4.1-Flash Â· 4.1",
+                "ImplementaÃ§Ã£o principal: motor Rust/Media Foundation e pipeline raw NV12 + FFmpeg (opÃ§Ã£o B); Ã¡udio WAV e sincronizaÃ§Ã£o A/V; preview em processo; painel do codificador; persistÃªncia de definiÃ§Ãµes e idioma; interface WinUI 3 base; cores Rec.709/2020; resoluÃ§Ã£o/FPS lidos da placa."),
+            ("Anthropic", "RevisÃ£o Â· sem cÃ³digo", "Antigravity (Google) Â· Claude Sonnet 4.6 (Thinking) Â· 4.6",
+                "RevisÃ£o do handoff e diagnÃ³stico da falha de arranque WinUI relacionada com PRI/XamlParseException."),
+            ("OpenAI", "Interface + UVC03 (raw)", "Codex Â· GPT-6",
+                "Interface: cartÃµes organizados para destino, vÃ­deo e Ã¡udio; DefiniÃ§Ãµes agrupadas; pÃ¡gina Sobre, volume, aÃ§Ãµes por separador e traduÃ§Ãµes revistas. UVC03 no pipeline raw/FFmpeg: fila limitada a 2 frames, saÃ­da CFR, contagem de frames recebidos/descartados/repetidos, espera atÃ© 40 s pelo primeiro frame e deteÃ§Ã£o de pausa apÃ³s 2,5 s; atÃ© duas reaberturas do leitor, com aviso na UI e fecho da gravaÃ§Ã£o se nÃ£o recuperar.")
         };
         target.Children.Clear();
         foreach (var e in entries)
@@ -1410,18 +1419,23 @@ public sealed partial class MainWindow : Window
     private void SettingsNav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (SettingsOverlay == null || SecGravacao == null) return;
-        int i = Math.Max(0, SettingsNav.SelectedIndex);
-        SecGravacao.Visibility = i == 0 ? Visibility.Visible : Visibility.Collapsed;
-        SecAparencia.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
-        SecSobre.Visibility = i == 2 ? Visibility.Visible : Visibility.Collapsed;
+        var list = sender as ListView;
+        if (list == null || list.SelectedItem == null) return;
+        var other = list == SettingsNav ? SettingsNavInfo : SettingsNav;
+        if (other != null && other.SelectedItem != null) other.SelectedIndex = -1;
+        string tag = (list.SelectedItem as ListViewItem)?.Tag as string ?? "rec";
+        ShowSettingsSection(tag);
+    }
+
+    private void ShowSettingsSection(string tag)
+    {
+        if (SecGravacao == null) return;
+        SecGravacao.Visibility = tag == "rec" ? Visibility.Visible : Visibility.Collapsed;
+        SecAparencia.Visibility = tag == "appearance" ? Visibility.Visible : Visibility.Collapsed;
+        SecSobre.Visibility = tag == "about" ? Visibility.Visible : Visibility.Collapsed;
         if (SecDiagnostico != null)
-            SecDiagnostico.Visibility = i == 3 ? Visibility.Visible : Visibility.Collapsed;
-        if (i == 3) RefreshDiagnostics();
-        bool readOnlyPage = i >= 2;
-        if (SettingsEditActions != null)
-            SettingsEditActions.Visibility = readOnlyPage ? Visibility.Collapsed : Visibility.Visible;
-        if (SettingsAboutActions != null)
-            SettingsAboutActions.Visibility = readOnlyPage ? Visibility.Visible : Visibility.Collapsed;
+            SecDiagnostico.Visibility = tag == "diag" ? Visibility.Visible : Visibility.Collapsed;
+        if (tag == "diag") RefreshDiagnostics();
     }
 
     private void DiagnosticsRefresh_Click(object sender, RoutedEventArgs e) => RefreshDiagnostics();
@@ -1450,6 +1464,10 @@ public sealed partial class MainWindow : Window
                       (FormatBox.SelectedItem as ComboBoxItem)?.Content);
         sb.AppendLine("Codec: " + (CodecBox.SelectedItem as ComboBoxItem)?.Content + " / " +
                       (HwBox.SelectedItem as ComboBoxItem)?.Content);
+        sb.AppendLine("HW encode: NVENC=" +
+                      $"{_hasNvencH264}/{_hasNvencHevc}/{_hasNvencAv1} QSV=" +
+                      $"{_hasQsvH264}/{_hasQsvHevc}/{_hasQsvAv1} AMF=" +
+                      $"{_hasAmfH264}/{_hasAmfHevc}/{_hasAmfAv1}");
         sb.AppendLine("Audio cfg: " + (AudioModeBox.SelectedItem as ComboBoxItem)?.Content + " " +
                       (AudioRateBox.SelectedItem as ComboBoxItem)?.Content + " " +
                       (AudioChannelsBox.SelectedItem as ComboBoxItem)?.Content + " " +
@@ -1479,7 +1497,7 @@ public sealed partial class MainWindow : Window
             if (f != null)
             {
                 await Windows.Storage.FileIO.WriteTextAsync(f, DiagText.Text);
-                ShowNotice(InfoBarSeverity.Success, Loc.T("Diagnóstico"), Loc.T("Relatório exportado."));
+                ShowNotice(InfoBarSeverity.Success, Loc.T("DiagnÃ³stico"), Loc.T("RelatÃ³rio exportado."));
             }
         }
         catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
@@ -1492,7 +1510,7 @@ public sealed partial class MainWindow : Window
             var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
             dp.SetText(DiagText.Text);
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-            ShowNotice(InfoBarSeverity.Success, Loc.T("Diagnóstico"), Loc.T("Copiado."));
+            ShowNotice(InfoBarSeverity.Success, Loc.T("DiagnÃ³stico"), Loc.T("Copiado."));
         }
         catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
     }
@@ -1545,7 +1563,7 @@ public sealed partial class MainWindow : Window
         BframesBox.SelectedIndex = Math.Max(0, BframesBox2.SelectedIndex);
         MultipassBox.SelectedIndex = Math.Max(0, MultipassBox2.SelectedIndex);
         CqBox.SelectedIndex = Math.Max(0, CqBox2.SelectedIndex);
-        _videoEncoder = Math.Clamp(EncoderBox2.SelectedIndex, 0, 4);
+        _videoEncoder = Math.Clamp(EncoderBox2.SelectedIndex, 0, 5);
         UpdateAudioFields();
         UpdateVideoFields();
         if (LanguageBox2 != null)
@@ -1559,7 +1577,7 @@ public sealed partial class MainWindow : Window
         try { InfoDevice.Visibility = _showInfo ? Visibility.Visible : Visibility.Collapsed; } catch { }
         SaveSettings();
         SettingsOverlay.Visibility = Visibility.Collapsed;
-        Log("Definições guardadas.");
+        Log("DefiniÃ§Ãµes guardadas.");
     }
 
     private async void BrowseMainFolder_Click(object sender, RoutedEventArgs e)
@@ -1595,7 +1613,7 @@ public sealed partial class MainWindow : Window
                 File.WriteAllText(marker, "portable");
             else if (File.Exists(marker))
                 File.Delete(marker);
-            ShowNotice(InfoBarSeverity.Informational, Loc.T("Modo portátil"),
+            ShowNotice(InfoBarSeverity.Informational, Loc.T("Modo portÃ¡til"),
                        Loc.T("Reinicia a app para aplicar."));
         }
         catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
@@ -1649,7 +1667,7 @@ public sealed partial class MainWindow : Window
     private void OpenSettingsFolder_Click(object sender, RoutedEventArgs e)
     {
         try { Process.Start("explorer.exe", "\"" + Path.GetDirectoryName(SettingsPath) + "\""); }
-        catch (Exception ex) { Log("abrir definições: " + ex.Message); }
+        catch (Exception ex) { Log("abrir definiÃ§Ãµes: " + ex.Message); }
     }
 
     private async void OpenEncoders_Click(object sender, RoutedEventArgs e)
@@ -1666,9 +1684,9 @@ public sealed partial class MainWindow : Window
             {
                 var t = line.Trim().Split('\t');
                 if (t.Length < 4 || t[0] != "E") continue;
-                sp.Children.Add(new TextBlock { Text = $"{t[1]}  ·  {t[2]}  ·  {t[3]}", FontSize = 12, TextWrapping = TextWrapping.Wrap });
+                sp.Children.Add(new TextBlock { Text = $"{t[1]}  Â·  {t[2]}  Â·  {t[3]}", FontSize = 12, TextWrapping = TextWrapping.Wrap });
             }
-            var dlg = new ContentDialog { Title = "Encoders disponíveis", Content = sp, CloseButtonText = "Fechar", XamlRoot = Content.XamlRoot };
+            var dlg = new ContentDialog { Title = "Encoders disponÃ­veis", Content = sp, CloseButtonText = "Fechar", XamlRoot = Content.XamlRoot };
             await dlg.ShowAsync();
         }
         catch (Exception ex) { Log("encoders: " + ex.Message); }
@@ -1691,9 +1709,9 @@ public sealed partial class MainWindow : Window
                 var full = Path.GetFullPath(p);
                 if (File.Exists(full)) { Process.Start("notepad.exe", "\"" + full + "\""); return; }
             }
-            Log("LICENSE não encontrado junto da app.");
+            Log("LICENSE nÃ£o encontrado junto da app.");
         }
-        catch (Exception ex) { Log("licença: " + ex.Message); }
+        catch (Exception ex) { Log("licenÃ§a: " + ex.Message); }
     }
 
     private void CodecBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateVideoFields();
@@ -1710,8 +1728,8 @@ public sealed partial class MainWindow : Window
             {
                 var t = line.Trim().Split('\t');
                 if (t.Length < 4 || t[0] != "E" || t[1] != "H.264" || t[3] != "HW") continue;
-                if (t[2].Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) { name = "GPU · NVENC"; break; }
-                if (t[2].Contains("DX12", StringComparison.OrdinalIgnoreCase)) name = "GPU · AVC DX12";
+                if (t[2].Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)) { name = "GPU Â· NVENC"; break; }
+                if (t[2].Contains("DX12", StringComparison.OrdinalIgnoreCase)) name = "GPU Â· AVC DX12";
             }
             DispatcherQueue.TryEnqueue(() =>
             {
@@ -1757,7 +1775,7 @@ public sealed partial class MainWindow : Window
         }
         Log(_ffmpegPath != null
             ? $"FFmpeg {_ffmpegVersion ?? "?"}: {_ffmpegPath}"
-            : "FFmpeg não encontrado (MP3/FLAC indisponíveis).");
+            : "FFmpeg nÃ£o encontrado (MP3/FLAC indisponÃ­veis).");
     }
 
     private void TranscodeAudio(string file, string codec)
@@ -1788,7 +1806,7 @@ public sealed partial class MainWindow : Window
             {
                 File.Delete(file);
                 File.Move(tmp, file);
-                DispatcherQueue.TryEnqueue(() => Log($"Áudio convertido para {codec.ToUpperInvariant()}: {file}"));
+                DispatcherQueue.TryEnqueue(() => Log($"Ãudio convertido para {codec.ToUpperInvariant()}: {file}"));
             }
             else
             {
@@ -1804,7 +1822,7 @@ public sealed partial class MainWindow : Window
     {
         if (AudioModeBox == null || AbrBox == null || AudioBitsBox == null ||
             AudioRateBox == null || AudioChannelsBox == null) return;
-        int m = AudioModeBox.SelectedIndex; // 0 sem áudio, 1 AAC, 2 PCM, 3 MP3, 4 FLAC, 5 Opus
+        int m = AudioModeBox.SelectedIndex; // 0 sem Ã¡udio, 1 AAC, 2 PCM, 3 MP3, 4 FLAC, 5 Opus
         bool any = m != 0;
         try
         {
@@ -1822,10 +1840,19 @@ public sealed partial class MainWindow : Window
     {
         if (CodecBox == null || ProfileBox == null) return;
         bool h264 = CodecBox.SelectedIndex == 0;
+        bool av1 = CodecBox.SelectedIndex == 2;
         try
         {
             ProfileBox.IsEnabled = h264;
             ProfileBox.Opacity = h264 ? 1.0 : 0.45;
+            if (HwBox != null)
+            {
+                HwBox.IsEnabled = !av1;
+                HwBox.Opacity = av1 ? 0.45 : 1.0;
+            }
+            if (RateBox != null && RateBox.Items.Count > 4 && RateBox.Items[4] is ComboBoxItem losslessItem)
+                losslessItem.IsEnabled = !av1;
+            if (av1 && RateBox != null && RateBox.SelectedIndex == 4) RateBox.SelectedIndex = 1;
         }
         catch { }
         UpdateEncoderFields();
@@ -1833,27 +1860,63 @@ public sealed partial class MainWindow : Window
     }
 
     // -----------------------------------------------------------------------
-    // Painel do codificador (opções passadas ao FFmpeg / MF)
+    // Painel do codificador (opÃ§Ãµes passadas ao FFmpeg / MF)
     // -----------------------------------------------------------------------
 
     private (string Enc, bool Nvenc, bool Hevc) ResolveEncoder(bool logFallback = false)
     {
-        int choice = Math.Clamp(_videoEncoder, 0, 4);
-        bool wantHevc = CodecBox.SelectedIndex == 1;
+        int choice = Math.Clamp(_videoEncoder, 0, 5);
+        int codec = CodecBox.SelectedIndex;
+        bool wantHevc = codec == 1;
+        bool wantAv1  = codec == 2;
         bool gpu = HwBox.SelectedIndex == 0;
+        bool lossless = RateBox.SelectedIndex == 4;
+
+        if (wantAv1)
+        {
+            if (gpu && !lossless)
+            {
+                if (_hasNvencAv1 == true) return ("av1_nvenc", true, false);
+                if (_hasQsvAv1 == true) return ("av1_qsv", false, false);
+                if (_hasAmfAv1 == true) return ("av1_amf", false, false);
+            }
+            if (_hasSvtAv1 != false) return ("libsvtav1", false, false);
+            if (logFallback) Log("SVT-AV1 indisponÃ­vel; a usar libaom-av1 (mais lento).");
+            return ("libaom-av1", false, false);
+        }
+
+        if (choice == 5)
+        {
+            if (logFallback) Log("AV1 sÃ³ estÃ¡ disponÃ­vel com o codec AV1; a usar o AutomÃ¡tico.");
+            choice = 0;
+        }
         switch (choice)
         {
-            case 1 when _hasNvencH264 != false: return ("h264_nvenc", true, false);
-            case 2 when _hasNvencHevc != false: return ("hevc_nvenc", true, true);
+            case 1 when _hasNvencH264 == true: return ("h264_nvenc", true, false);
+            case 2 when _hasNvencHevc == true: return ("hevc_nvenc", true, true);
             case 3 when _hasX264 != false: return ("libx264", false, false);
             case 4 when _hasX265 != false: return ("libx265", false, true);
             case 0: break;
             default:
-                if (logFallback) Log("Codificador escolhido indisponível; a usar o Automático.");
+                if (logFallback) Log("Codificador escolhido indisponÃ­vel; a usar o AutomÃ¡tico.");
                 break;
         }
-        bool nvenc = gpu && (wantHevc ? _hasNvencHevc != false : _hasNvencH264 != false);
-        if (nvenc) return (wantHevc ? "hevc_nvenc" : "h264_nvenc", true, wantHevc);
+
+        if (gpu)
+        {
+            if (wantHevc)
+            {
+                if (_hasNvencHevc == true) return ("hevc_nvenc", true, true);
+                if (!lossless && _hasQsvHevc == true) return ("hevc_qsv", false, true);
+                if (!lossless && _hasAmfHevc == true) return ("hevc_amf", false, true);
+            }
+            else
+            {
+                if (_hasNvencH264 == true) return ("h264_nvenc", true, false);
+                if (!lossless && _hasQsvH264 == true) return ("h264_qsv", false, false);
+                if (!lossless && _hasAmfH264 == true) return ("h264_amf", false, false);
+            }
+        }
         return (wantHevc ? "libx265" : "libx264", false, wantHevc);
     }
 
@@ -1865,12 +1928,18 @@ public sealed partial class MainWindow : Window
         bool lossless = rate == 4;
         bool cq = rate == 1 || rate == 3;
         bool br = rate == 0 || rate == 2 || rate == 3;
+        bool av1 = CodecBox.SelectedIndex == 2;
         BitrateBox.IsEnabled = br;
         BitrateBox.Opacity = br ? 1.0 : 0.45;
         CqBox.IsEnabled = cq;
         CqBox.Opacity = cq ? 1.0 : 0.45;
-        TuneBox.IsEnabled = !lossless;
-        TuneBox.Opacity = lossless ? 0.45 : 1.0;
+        TuneBox.IsEnabled = !lossless && !av1;
+        TuneBox.Opacity = TuneBox.IsEnabled ? 1.0 : 0.45;
+        if (BframesBox != null)
+        {
+            BframesBox.IsEnabled = !av1;
+            BframesBox.Opacity = av1 ? 0.45 : 1.0;
+        }
         bool nvenc = ResolveEncoder().Nvenc;
         MultipassBox.IsEnabled = nvenc && !lossless;
         MultipassBox.Opacity = MultipassBox.IsEnabled ? 1.0 : 0.45;
@@ -1885,12 +1954,21 @@ public sealed partial class MainWindow : Window
         bool lossless = rate == 4;
         bool cq = rate == 1 || rate == 3;
         bool br = rate == 0 || rate == 2 || rate == 3;
+        bool av1 = CodecBox2?.SelectedIndex == 2;
+        if (av1 && RateBox2.SelectedIndex == 4) RateBox2.SelectedIndex = 1;
+        if (RateBox2.Items.Count > 4 && RateBox2.Items[4] is ComboBoxItem lossless2)
+            lossless2.IsEnabled = !av1;
         BitrateBox2.IsEnabled = br;
         BitrateBox2.Opacity = br ? 1.0 : 0.45;
         CqBox2.IsEnabled = cq;
         CqBox2.Opacity = cq ? 1.0 : 0.45;
-        TuneBox2.IsEnabled = !lossless;
-        TuneBox2.Opacity = lossless ? 0.45 : 1.0;
+        TuneBox2.IsEnabled = !lossless && !av1;
+        TuneBox2.Opacity = TuneBox2.IsEnabled ? 1.0 : 0.45;
+        if (BframesBox2 != null)
+        {
+            BframesBox2.IsEnabled = !av1;
+            BframesBox2.Opacity = av1 ? 0.45 : 1.0;
+        }
         int choice = EncoderBox2?.SelectedIndex ?? 0;
         bool nvenc = choice == 1 || choice == 2 ||
                      (choice == 0 && ResolveEncoder().Nvenc);
@@ -1901,14 +1979,14 @@ public sealed partial class MainWindow : Window
     private void BuildEncoderList()
     {
         if (EncoderBox2 == null) return;
-        int keep = Math.Clamp(_videoEncoder, 0, 4);
+        int keep = Math.Clamp(_videoEncoder, 0, 5);
         EncoderBox2.Items.Clear();
-        EncoderBox2.Items.Add(new ComboBoxItem { Content = Loc.T("Automático (segue o codec)") });
+        EncoderBox2.Items.Add(new ComboBoxItem { Content = Loc.T("AutomÃ¡tico (segue o codec)") });
         void Add(string label, bool? available)
         {
             var it = new ComboBoxItem
             {
-                Content = Loc.T(label) + (available == false ? " — " + Loc.T("indisponível") : ""),
+                Content = Loc.T(label) + (available == false ? " â€” " + Loc.T("indisponÃ­vel") : ""),
                 IsEnabled = available != false
             };
             EncoderBox2.Items.Add(it);
@@ -1917,6 +1995,7 @@ public sealed partial class MainWindow : Window
         Add("NVIDIA NVENC HEVC", _hasNvencHevc);
         Add("x264 (CPU)", _hasX264);
         Add("x265 (CPU)", _hasX265);
+        Add("AV1 (SVT-AV1)", _hasSvtAv1);
         EncoderBox2.SelectedIndex = keep;
     }
 
@@ -1924,7 +2003,9 @@ public sealed partial class MainWindow : Window
     {
         if (_ffmpegPath == null)
         {
-            _hasNvencH264 = _hasNvencHevc = _hasX264 = _hasX265 = false;
+            _hasNvencH264 = _hasNvencHevc = _hasX264 = _hasX265 = _hasSvtAv1 = false;
+            _hasNvencAv1 = _hasQsvH264 = _hasQsvHevc = _hasQsvAv1 = false;
+            _hasAmfH264 = _hasAmfHevc = _hasAmfAv1 = false;
             return;
         }
         try
@@ -1948,15 +2029,80 @@ public sealed partial class MainWindow : Window
             _hasNvencHevc = text.Contains("hevc_nvenc");
             _hasX264 = text.Contains("libx264");
             _hasX265 = text.Contains("libx265");
+            _hasSvtAv1 = text.Contains("libsvtav1");
+
+            async Task Probe(string enc, Action<bool> set)
+            {
+                if (!text.Contains(enc)) { set(false); return; }
+                set(await ProbeEncoder(enc));
+            }
+            await Task.WhenAll(
+                Probe("h264_nvenc", v => _hasNvencH264 = v),
+                Probe("hevc_nvenc", v => _hasNvencHevc = v),
+                Probe("av1_nvenc",  v => _hasNvencAv1 = v),
+                Probe("h264_qsv",   v => _hasQsvH264 = v),
+                Probe("hevc_qsv",   v => _hasQsvHevc = v),
+                Probe("av1_qsv",    v => _hasQsvAv1 = v),
+                Probe("h264_amf",   v => _hasAmfH264 = v),
+                Probe("hevc_amf",   v => _hasAmfHevc = v),
+                Probe("av1_amf",    v => _hasAmfAv1 = v));
+
             DispatcherQueue.TryEnqueue(() =>
             {
                 BuildEncoderList();
                 UpdateEncoderFields();
                 UpdateEncoderFields2();
             });
-            Log($"FFmpeg encoders: NVENC H.264={_hasNvencH264}, HEVC={_hasNvencHevc}, x264={_hasX264}, x265={_hasX265}");
+            Log($"FFmpeg encoders: NVENC H.264={_hasNvencH264}, HEVC={_hasNvencHevc}, AV1={_hasNvencAv1}; " +
+                $"QSV={_hasQsvH264}/{_hasQsvHevc}/{_hasQsvAv1}; AMF={_hasAmfH264}/{_hasAmfHevc}/{_hasAmfAv1}; " +
+                $"x264={_hasX264}, x265={_hasX265}, SVT-AV1={_hasSvtAv1}");
         }
         catch (Exception ex) { Log("encoders FFmpeg: " + ex.Message); }
+    }
+
+    /// <summary>Testa mesmo o encoder de hardware (a lista do FFmpeg inclui encoders sem GPU compatÃ­vel).</summary>
+    private async Task<bool> ProbeEncoder(string enc)
+    {
+        if (_ffmpegPath == null) return false;
+        try
+        {
+            var psi = new ProcessStartInfo(_ffmpegPath)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            foreach (var a in new[]
+            {
+                "-hide_banner", "-loglevel", "error",
+                "-f", "lavfi", "-i", "color=c=black:s=256x144:r=1",
+                "-frames:v", "1", "-an", "-c:v", enc
+            }) psi.ArgumentList.Add(a);
+            if (enc.EndsWith("_nvenc"))
+            {
+                foreach (var a in new[] { "-preset", "p5", "-rc", "constqp", "-qp", "23" }) psi.ArgumentList.Add(a);
+            }
+            else if (enc.EndsWith("_qsv"))
+            {
+                foreach (var a in new[] { "-preset", "4", "-global_quality", "23" }) psi.ArgumentList.Add(a);
+            }
+            else if (enc.EndsWith("_amf"))
+            {
+                foreach (var a in new[] { "-quality", "1", "-rc", "cqp", "-qp_i", "23", "-qp_p", "23" }) psi.ArgumentList.Add(a);
+            }
+            foreach (var a in new[] { "-pix_fmt", enc.EndsWith("_qsv") ? "nv12" : "yuv420p", "-f", "null", "-" })
+                psi.ArgumentList.Add(a);
+
+            using var p = Process.Start(psi);
+            if (p == null) return false;
+            _ = p.StandardError.ReadToEndAsync();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            try { await p.WaitForExitAsync(cts.Token); }
+            catch { try { p.Kill(true); } catch { } return false; }
+            return p.ExitCode == 0;
+        }
+        catch { return false; }
     }
     private void BtnRec_Click(object sender, RoutedEventArgs e)
     {
@@ -1966,9 +2112,9 @@ public sealed partial class MainWindow : Window
 
         if (!File.Exists(ExePath))
         {
-            Log("ERRO: captura-rec.exe não encontrado em " + ExePath);
+            Log("ERRO: captura-rec.exe nÃ£o encontrado em " + ExePath);
             ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"),
-                       Loc.T("O motor captura-rec.exe não foi encontrado."));
+                       Loc.T("O motor captura-rec.exe nÃ£o foi encontrado."));
             return;
         }
 
@@ -1983,17 +2129,23 @@ public sealed partial class MainWindow : Window
 
         int au = AudioModeBox.SelectedIndex;  // 0=none 1=AAC 2=PCM 3=MP3 4=FLAC 5=Opus
         bool pcmCapture = au == 2 || au == 3 || au == 4 || au == 5;
-        var ext = pcmCapture ? "mkv" : Exts[Math.Max(0, ContBox.SelectedIndex)];
+        bool av1 = CodecBox.SelectedIndex == 2;
+        var ext = (pcmCapture || av1) ? "mkv" : Exts[Math.Max(0, ContBox.SelectedIndex)];
 
-        // O FPS das combos pode não existir na placa (a lista junta valores genéricos).
+        // O FPS das combos pode nÃ£o existir na placa (a lista junta valores genÃ©ricos).
         var mode = ResolveCaptureMode(GetSelRes().W, GetSelRes().H, GetSelFps());
         _out = Path.Combine(folder,
             BuildOutputName(_fileTemplate, mode.W, mode.H, mode.Fps) + "." + ext);
         int splitMin = (int)Splits[Math.Max(0, SplitBox.SelectedIndex)];
-        // CAPTURA_PIPELINE=mf força o caminho Media Foundation (diagnóstico/fallback).
+        if (av1 && splitMin > 0)
+        {
+            splitMin = 0;
+            Log("AV1: divisÃ£o automÃ¡tica desativada (o pipeline AV1 grava um Ãºnico ficheiro).");
+        }
+        // CAPTURA_PIPELINE=mf forÃ§a o caminho Media Foundation (diagnÃ³stico/fallback).
         bool forceMf = string.Equals(Environment.GetEnvironmentVariable("CAPTURA_PIPELINE"),
                                      "mf", StringComparison.OrdinalIgnoreCase);
-        bool useFf = _ffmpegPath != null && splitMin == 0 && !forceMf;
+        bool useFf = _ffmpegPath != null && splitMin == 0 && (!forceMf || av1);
         if (forceMf) Log("Pipeline: Media Foundation (CAPTURA_PIPELINE=mf).");
 
         _captureReady = false;
@@ -2034,7 +2186,7 @@ public sealed partial class MainWindow : Window
         var best = _modes.OrderBy(m => Math.Abs((long)m.W * m.H - (long)w * h)).First();
         var cands = _modes.Where(m => m.W == best.W && m.H == best.H).ToList();
         var chosen = cands.OrderBy(m => Math.Abs((long)m.Fps - fps)).First();
-        Log($"Modo ajustado: {w}x{h}@{fps} → {chosen.W}x{chosen.H}@{chosen.Fps}");
+        Log($"Modo ajustado: {w}x{h}@{fps} â†’ {chosen.W}x{chosen.H}@{chosen.Fps}");
         return (chosen.W, chosen.H, chosen.Fps);
     }
 
@@ -2107,7 +2259,7 @@ public sealed partial class MainWindow : Window
     }
 
     // -----------------------------------------------------------------------
-    // Atualizações (GitHub Releases + latest.json)
+    // AtualizaÃ§Ãµes (GitHub Releases + latest.json)
     // -----------------------------------------------------------------------
 
     private async void BtnCheckUpdates_Click(object sender, RoutedEventArgs e)
@@ -2130,7 +2282,7 @@ public sealed partial class MainWindow : Window
     {
         if (_updateChecking) return;
         _updateChecking = true;
-        if (!silent) UpdateStatusText.Text = Loc.T("A verificar…");
+        if (!silent) UpdateStatusText.Text = Loc.T("A verificarâ€¦");
         try
         {
             string url = (_updateUrl ?? "").Trim();
@@ -2148,27 +2300,27 @@ public sealed partial class MainWindow : Window
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (m == null || string.IsNullOrWhiteSpace(m.Version))
             {
-                if (!silent) UpdateStatusText.Text = Loc.T("Resposta de atualização inválida.");
+                if (!silent) UpdateStatusText.Text = Loc.T("Resposta de atualizaÃ§Ã£o invÃ¡lida.");
                 return;
             }
             if (!Version.TryParse(m.Version, out var latest) ||
                 !Version.TryParse(AppVersion, out var current))
             {
-                if (!silent) UpdateStatusText.Text = Loc.T("Versão inválida no manifesto.");
+                if (!silent) UpdateStatusText.Text = Loc.T("VersÃ£o invÃ¡lida no manifesto.");
                 return;
             }
             if (latest <= current)
             {
                 if (!silent)
                 {
-                    UpdateStatusText.Text = Loc.T("Estás na versão mais recente.");
-                    ShowNotice(InfoBarSeverity.Success, Loc.T("Atualizações"),
-                               Loc.T("Estás na versão mais recente."));
+                    UpdateStatusText.Text = Loc.T("EstÃ¡s na versÃ£o mais recente.");
+                    ShowNotice(InfoBarSeverity.Success, Loc.T("AtualizaÃ§Ãµes"),
+                               Loc.T("EstÃ¡s na versÃ£o mais recente."));
                 }
                 return;
             }
 
-            if (!silent) UpdateStatusText.Text = Loc.T("Nova versão disponível:") + " " + m.Version;
+            if (!silent) UpdateStatusText.Text = Loc.T("Nova versÃ£o disponÃ­vel:") + " " + m.Version;
             ShowUpdateAvailable(m, silent);
         }
         catch (HttpRequestException hex) when (hex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -2176,8 +2328,8 @@ public sealed partial class MainWindow : Window
             Log("updates: 404 " + _updateUrl);
             if (!silent)
             {
-                UpdateStatusText.Text = Loc.T("Ainda não há release publicada (ou o repositório é privado).");
-                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+                UpdateStatusText.Text = Loc.T("Ainda nÃ£o hÃ¡ release publicada (ou o repositÃ³rio Ã© privado).");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("AtualizaÃ§Ãµes"), UpdateStatusText.Text);
             }
         }
         catch (TaskCanceledException)
@@ -2185,8 +2337,8 @@ public sealed partial class MainWindow : Window
             Log("updates: timeout");
             if (!silent)
             {
-                UpdateStatusText.Text = Loc.T("Tempo esgotado ao verificar atualizações.");
-                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+                UpdateStatusText.Text = Loc.T("Tempo esgotado ao verificar atualizaÃ§Ãµes.");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("AtualizaÃ§Ãµes"), UpdateStatusText.Text);
             }
         }
         catch (HttpRequestException ex)
@@ -2194,8 +2346,8 @@ public sealed partial class MainWindow : Window
             Log("updates: " + ex.Message);
             if (!silent)
             {
-                UpdateStatusText.Text = Loc.T("Sem ligação ao GitHub.");
-                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+                UpdateStatusText.Text = Loc.T("Sem ligaÃ§Ã£o ao GitHub.");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("AtualizaÃ§Ãµes"), UpdateStatusText.Text);
             }
         }
         catch (Exception ex)
@@ -2203,8 +2355,8 @@ public sealed partial class MainWindow : Window
             Log("updates: " + ex.Message);
             if (!silent)
             {
-                UpdateStatusText.Text = Loc.T("Não foi possível verificar atualizações.");
-                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+                UpdateStatusText.Text = Loc.T("NÃ£o foi possÃ­vel verificar atualizaÃ§Ãµes.");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("AtualizaÃ§Ãµes"), UpdateStatusText.Text);
             }
         }
         finally { _updateChecking = false; }
@@ -2214,8 +2366,8 @@ public sealed partial class MainWindow : Window
     {
         if (silent)
         {
-            ShowNotice(InfoBarSeverity.Informational, Loc.T("Nova versão disponível"),
-                       $"{m.Version} · {Loc.T("Vê Definições → Sobre para atualizar.")}",
+            ShowNotice(InfoBarSeverity.Informational, Loc.T("Nova versÃ£o disponÃ­vel"),
+                       $"{m.Version} Â· {Loc.T("VÃª DefiniÃ§Ãµes â†’ Sobre para atualizar.")}",
                        autoClose: false, actionText: Loc.T("Ver"),
                        action: () => ShowUpdateDialog(m));
             return;
@@ -2230,7 +2382,7 @@ public sealed partial class MainWindow : Window
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(new TextBlock
             {
-                Text = $"{Loc.T("Versão instalada:")} {AppVersion}   ·   {Loc.T("Nova versão:")} {m.Version}",
+                Text = $"{Loc.T("VersÃ£o instalada:")} {AppVersion}   Â·   {Loc.T("Nova versÃ£o:")} {m.Version}",
                 TextWrapping = TextWrapping.Wrap
             });
             if (!string.IsNullOrWhiteSpace(m.Notes))
@@ -2245,7 +2397,7 @@ public sealed partial class MainWindow : Window
                 });
             panel.Children.Add(new TextBlock
             {
-                Text = Loc.T("A app vai fechar durante a instalação."),
+                Text = Loc.T("A app vai fechar durante a instalaÃ§Ã£o."),
                 FontSize = 11,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 120, 120))
@@ -2253,10 +2405,10 @@ public sealed partial class MainWindow : Window
 
             var dlg = new ContentDialog
             {
-                Title = Loc.T("Atualização disponível"),
+                Title = Loc.T("AtualizaÃ§Ã£o disponÃ­vel"),
                 Content = new ScrollViewer { Content = panel, MaxHeight = 360 },
                 PrimaryButtonText = Loc.T("Transferir"),
-                CloseButtonText = Loc.T("Agora não"),
+                CloseButtonText = Loc.T("Agora nÃ£o"),
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = Content.XamlRoot
             };
@@ -2271,7 +2423,7 @@ public sealed partial class MainWindow : Window
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
-            ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), Loc.T("URL de atualização inválida."));
+            ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), Loc.T("URL de atualizaÃ§Ã£o invÃ¡lida."));
             return;
         }
         try { await Windows.System.Launcher.LaunchUriAsync(uri); }
@@ -2387,7 +2539,7 @@ public sealed partial class MainWindow : Window
     {
         if (_proc != null)
         {
-            Log("Perfil não aplicado durante a gravação.");
+            Log("Perfil nÃ£o aplicado durante a gravaÃ§Ã£o.");
             return;
         }
 
@@ -2452,7 +2604,7 @@ public sealed partial class MainWindow : Window
         if (idx < 0 || idx >= _profilePresets.Count) return;
         if (_proc != null)
         {
-            Log("Perfil não aplicado durante a gravação.");
+            Log("Perfil nÃ£o aplicado durante a gravaÃ§Ã£o.");
             return;
         }
         ApplyProfile(_profilePresets[idx]);
@@ -2480,7 +2632,7 @@ public sealed partial class MainWindow : Window
         if (name.Length == 0)
         {
             ShowNotice(InfoBarSeverity.Warning, Loc.T("Erro"),
-                       Loc.T("O nome do perfil não pode estar vazio."));
+                       Loc.T("O nome do perfil nÃ£o pode estar vazio."));
             return;
         }
 
@@ -2676,7 +2828,7 @@ public sealed partial class MainWindow : Window
             SaveProfilePresets();
             LoadProfilePresets();
             ShowNotice(InfoBarSeverity.Success, Loc.T("Perfis"),
-                $"{added} {Loc.T("novos")}, {replaced} {Loc.T("substituídos")}.");
+                $"{added} {Loc.T("novos")}, {replaced} {Loc.T("substituÃ­dos")}.");
         }
         catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
     }
@@ -2688,8 +2840,8 @@ public sealed partial class MainWindow : Window
         _pvCts = new CancellationTokenSource();
         var pct = _pvCts.Token;
         ShowPreviewLoading("A ligar...");
-        if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Parar pré-visualização");
-        else BtnPreview.Content = Loc.T("Parar pré-visualização");
+        if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Parar prÃ©-visualizaÃ§Ã£o");
+        else BtnPreview.Content = Loc.T("Parar prÃ©-visualizaÃ§Ã£o");
         _ = Task.Run(() => PreviewVideoLoop(pct));
         if (PreviewAudioSwitch.IsOn)
         {
@@ -2744,7 +2896,7 @@ public sealed partial class MainWindow : Window
         if (RateBox.SelectedIndex != 0)
         {
             args.Add("--vbr");
-            if (RateBox.SelectedIndex == 4) Log("MF não suporta sem perdas; a usar VBR.");
+            if (RateBox.SelectedIndex == 4) Log("MF nÃ£o suporta sem perdas; a usar VBR.");
         }
 
         var fmt = GetSelFormat();
@@ -2833,13 +2985,13 @@ public sealed partial class MainWindow : Window
     }
 
     // -----------------------------------------------------------------------
-    // Caminho B: motor raw → FFmpeg (encode) → mux
+    // Caminho B: motor raw â†’ FFmpeg (encode) â†’ mux
     // -----------------------------------------------------------------------
 
     private void StartFfmpegRecording(bool wasPreview, int au, uint w, uint h, uint fps, string folder)
     {
-        // Opção A (MFT + ICodecAPI dentro do motor) fica anotada para o futuro.
-        // Aqui o encode é feito pelo FFmpeg; o caminho MF usa o IMFSinkWriter.
+        // OpÃ§Ã£o A (MFT + ICodecAPI dentro do motor) fica anotada para o futuro.
+        // Aqui o encode Ã© feito pelo FFmpeg; o caminho MF usa o IMFSinkWriter.
         string stem = Path.GetFileNameWithoutExtension(_out);
         _rawVideo = Path.Combine(folder, stem + ".raw.mp4");
         _rawWav   = _rawVideo + ".wav";
@@ -2884,7 +3036,7 @@ public sealed partial class MainWindow : Window
 
         var fmtSel = GetSelFormat();
         if (fmtSel != "auto" && fmtSel != "nv12")
-            Log("FFmpeg: a capturar NV12 (o formato escolhido aplica-se só ao caminho MF).");
+            Log("FFmpeg: a capturar NV12 (o formato escolhido aplica-se sÃ³ ao caminho MF).");
 
         var psi = new ProcessStartInfo(ExePath)
         {
@@ -2908,14 +3060,19 @@ public sealed partial class MainWindow : Window
         var ff = StartFfmpeg(encArgs, redirectStdin: true);
         _ffProc = ff;
         _pipeTask = Task.Run(() => PumpAsync(engine.StandardOutput.BaseStream, ff.StandardInput.BaseStream));
-        Log($"FFmpeg: {enc.Enc} {w}x{h}@{fps} · {RateBox.SelectedIndex switch { 0 => "CBR", 1 => "CQP", 2 => "VBR", 3 => "VBR alvo", _ => "sem perdas" }}");
+        Log($"FFmpeg: {enc.Enc} {w}x{h}@{fps} Â· {RateBox.SelectedIndex switch { 0 => "CBR", 1 => "CQP", 2 => "VBR", 3 => "VBR alvo", _ => "sem perdas" }}");
     }
 
     private List<string> BuildFfmpegEncodeArgs(uint w, uint h, uint fps, string outPath,
                                                (string Enc, bool Nvenc, bool Hevc) e)
     {
-        bool nvenc = e.Nvenc;
+        bool nvenc = e.Enc.EndsWith("_nvenc");
+        bool qsv   = e.Enc.EndsWith("_qsv");
+        bool amf   = e.Enc.EndsWith("_amf");
         bool hevc  = e.Hevc;
+        bool av1   = e.Enc.Contains("av1");
+        bool svt   = e.Enc == "libsvtav1";
+        bool aom   = e.Enc == "libaom-av1";
         var a = new List<string>
         {
             "-y", "-hide_banner", "-loglevel", "warning",
@@ -2927,11 +3084,23 @@ public sealed partial class MainWindow : Window
 
         int preset = Math.Clamp(PresetBox.SelectedIndex, 0, 6);
         if (nvenc) a.AddRange(new[] { "-preset", "p" + (preset + 1) });
+        else if (qsv) a.AddRange(new[] { "-preset", (preset + 1).ToString() });
+        else if (amf) a.AddRange(new[] { "-quality", "1" });
+        else if (svt)
+        {
+            int[] svtPresets = { 12, 12, 11, 10, 9, 8, 6 };
+            a.AddRange(new[] { "-preset", svtPresets[preset].ToString() });
+        }
+        else if (aom)
+        {
+            int[] aomCpu = { 8, 8, 7, 6, 5, 4, 3 };
+            a.AddRange(new[] { "-cpu-used", aomCpu[preset].ToString(), "-row-mt", "1" });
+        }
         else a.AddRange(new[] { "-preset", X264Presets[preset] });
 
         int rateMode = Math.Clamp(RateBox.SelectedIndex, 0, 4);
         bool lossless = rateMode == 4;
-        if (!lossless)
+        if (!av1 && !lossless)
         {
             int tune = Math.Clamp(TuneBox.SelectedIndex, 0, 3);
             if (nvenc)
@@ -2943,10 +3112,11 @@ public sealed partial class MainWindow : Window
             else if (e.Enc == "libx264" && (tune == 1 || tune == 2))
                 a.AddRange(new[] { "-tune", "zerolatency" });
         }
-        else if (nvenc)
+        else if (!av1 && nvenc)
             a.AddRange(new[] { "-tune", "lossless" });
 
-        a.AddRange(new[] { "-bf", Bframes[Math.Max(0, BframesBox.SelectedIndex)].ToString() });
+        if (!av1)
+            a.AddRange(new[] { "-bf", Bframes[Math.Max(0, BframesBox.SelectedIndex)].ToString() });
 
         if (nvenc && !lossless && MultipassBox.SelectedIndex > 0)
             a.AddRange(new[] { "-multipass", MultipassBox.SelectedIndex == 1 ? "qres" : "fullres" });
@@ -2954,38 +3124,80 @@ public sealed partial class MainWindow : Window
         int gopSec = (int)Math.Round(GopBox.Value);
         if (gopSec > 0) a.AddRange(new[] { "-g", (gopSec * (int)fps).ToString() });
 
-        if (!hevc) a.AddRange(new[] { "-profile:v", Profiles[Math.Max(0, ProfileBox.SelectedIndex)] });
+        if (!hevc && !av1 && !lossless) a.AddRange(new[] { "-profile:v", Profiles[Math.Max(0, ProfileBox.SelectedIndex)] });
 
         long br = (long)Bps[Math.Max(0, BitrateBox.SelectedIndex)] * 1_000_000L;
         int cq = CqValues[Math.Clamp(CqBox.SelectedIndex, 0, CqValues.Length - 1)];
-        switch (rateMode)
+        if (av1)
+        {
+            switch (rateMode)
+            {
+                case 0:
+                case 2:
+                    if (nvenc) a.AddRange(new[] { "-rc", rateMode == 0 ? "cbr" : "vbr", "-b:v", br.ToString() });
+                    else if (amf) a.AddRange(new[] { "-rc", rateMode == 0 ? "cbr" : "vbr_peak", "-b:v", br.ToString() });
+                    else a.AddRange(new[] { "-b:v", br.ToString() });
+                    break;
+                case 1:
+                case 3:
+                    if (nvenc) a.AddRange(new[] { "-rc", "constqp", "-qp", cq.ToString() });
+                    else if (qsv) a.AddRange(new[] { "-global_quality", cq.ToString() });
+                    else if (amf) a.AddRange(new[] { "-rc", "cqp", "-qp_i", cq.ToString(), "-qp_p", cq.ToString() });
+                    else
+                    {
+                        a.AddRange(new[] { "-crf", cq.ToString() });
+                        if (aom) a.AddRange(new[] { "-b:v", "0" });
+                    }
+                    break;
+                default:
+                    if (nvenc) a.AddRange(new[] { "-rc", "constqp", "-qp", "0" });
+                    else if (qsv) a.AddRange(new[] { "-global_quality", "1" });
+                    else if (amf) a.AddRange(new[] { "-rc", "cqp", "-qp_i", "1", "-qp_p", "1" });
+                    else
+                    {
+                        a.AddRange(new[] { "-crf", "1" });
+                        if (aom) a.AddRange(new[] { "-b:v", "0" });
+                    }
+                    break;
+            }
+        }
+        else switch (rateMode)
         {
             case 0: // CBR
                 if (nvenc) a.AddRange(new[] { "-rc", "cbr", "-b:v", br.ToString() });
+                else if (qsv) a.AddRange(new[] { "-b:v", br.ToString() });
+                else if (amf) a.AddRange(new[] { "-rc", "cbr", "-b:v", br.ToString() });
                 else a.AddRange(new[] { "-b:v", br.ToString(), "-minrate", br.ToString(),
                                         "-maxrate", br.ToString(), "-bufsize", (br * 2).ToString() });
                 break;
             case 1: // CQP
                 if (nvenc) a.AddRange(new[] { "-rc", "constqp", "-qp", cq.ToString() });
+                else if (qsv) a.AddRange(new[] { "-global_quality", cq.ToString() });
+                else if (amf) a.AddRange(new[] { "-rc", "cqp", "-qp_i", cq.ToString(), "-qp_p", cq.ToString() });
                 else a.AddRange(new[] { "-qp", cq.ToString() });
                 break;
             case 2: // VBR
                 if (nvenc) a.AddRange(new[] { "-rc", "vbr", "-b:v", br.ToString() });
+                else if (amf) a.AddRange(new[] { "-rc", "vbr_peak", "-b:v", br.ToString() });
                 else a.AddRange(new[] { "-b:v", br.ToString() });
                 break;
             case 3: // VBR com qualidade alvo
                 if (nvenc) a.AddRange(new[] { "-rc", "vbr", "-cq", cq.ToString(), "-b:v", br.ToString() });
+                else if (qsv) a.AddRange(new[] { "-global_quality", cq.ToString() });
+                else if (amf) a.AddRange(new[] { "-rc", "qvbr", "-qvbr_quality_level", cq.ToString() });
                 else a.AddRange(new[] { "-crf", cq.ToString(), "-maxrate", br.ToString(),
                                         "-bufsize", (br * 2).ToString() });
                 break;
             default: // sem perdas
                 if (nvenc) a.AddRange(new[] { "-rc", "constqp", "-qp", "0" });
+                else if (qsv) a.AddRange(new[] { "-global_quality", "1" });
+                else if (amf) a.AddRange(new[] { "-rc", "cqp", "-qp_i", "1", "-qp_p", "1" });
                 else if (e.Enc == "libx265") a.AddRange(new[] { "-x265-params", "lossless=1" });
                 else a.AddRange(new[] { "-qp", "0" });
                 break;
         }
 
-        a.AddRange(new[] { "-pix_fmt", "yuv420p" });
+        a.AddRange(new[] { "-pix_fmt", qsv ? "nv12" : "yuv420p" });
         bool cs2020 = ColorSpaceBox.SelectedIndex == 1;
         bool full   = ColorRangeBox.SelectedIndex == 1;
         a.AddRange(new[] { "-colorspace", cs2020 ? "bt2020nc" : "bt709" });
@@ -3068,7 +3280,7 @@ public sealed partial class MainWindow : Window
             {
                 if (!_captureReady) _start = DateTime.Now;
                 _captureReady = true;
-                if (!_stopRequested) StatusText.Text = Loc.T("A gravar…");
+                if (!_stopRequested) StatusText.Text = Loc.T("A gravarâ€¦");
             });
             return;
         }
@@ -3101,11 +3313,11 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(() =>
             {
-                _captureHealthText = Loc.T("Sem sinal da placa; a gravação vai terminar");
+                _captureHealthText = Loc.T("Sem sinal da placa; a gravaÃ§Ã£o vai terminar");
                 Log(_captureHealthText);
                 Log(line);
                 ShowNotice(InfoBarSeverity.Warning, Loc.T("Sem sinal da placa"),
-                           Loc.T("A gravação vai terminar."), autoClose: false);
+                           Loc.T("A gravaÃ§Ã£o vai terminar."), autoClose: false);
                 if (!_stopRequested) StopRec();
             });
             return;
@@ -3143,9 +3355,9 @@ public sealed partial class MainWindow : Window
                 line, @"source=(\d+)\s+output=(\d+)\s+dropped=(\d+)\s+repeated=(\d+)\s+recoveries=(\d+)");
             if (m.Success)
                 DispatcherQueue.TryEnqueue(() => Log(
-                    $"{Loc.T("Métricas")}: {Loc.T("fonte")} {m.Groups[1].Value}, {Loc.T("saída")} {m.Groups[2].Value}, " +
+                    $"{Loc.T("MÃ©tricas")}: {Loc.T("fonte")} {m.Groups[1].Value}, {Loc.T("saÃ­da")} {m.Groups[2].Value}, " +
                     $"{m.Groups[3].Value} {Loc.T("descartados")}, {m.Groups[4].Value} {Loc.T("repetidos")}, " +
-                    $"{Loc.T("recuperações")} {m.Groups[5].Value}."));
+                    $"{Loc.T("recuperaÃ§Ãµes")} {m.Groups[5].Value}."));
             return;
         }
         if (line.StartsWith("SYNC ", StringComparison.Ordinal))
@@ -3229,14 +3441,14 @@ public sealed partial class MainWindow : Window
         _stopRequested = true;
         try { proc.StandardInput.WriteLine(""); proc.StandardInput.Flush(); } catch { }
         // A interface continua responsiva enquanto o motor faz Flush ao leitor.
-        // Se o driver não libertar uma leitura bloqueada, mantemos um limite de segurança.
+        // Se o driver nÃ£o libertar uma leitura bloqueada, mantemos um limite de seguranÃ§a.
         _ = Task.Run(() =>
         {
             try
             {
                 if (!proc.WaitForExit(10000))
                 {
-                    DispatcherQueue.TryEnqueue(() => Log("A placa não terminou a leitura; a encerrar o motor."));
+                    DispatcherQueue.TryEnqueue(() => Log("A placa nÃ£o terminou a leitura; a encerrar o motor."));
                     proc.Kill();
                 }
             }
@@ -3270,10 +3482,10 @@ public sealed partial class MainWindow : Window
 
             if (!hasVideo)
             {
-                Log("FFmpeg: não foram gravados frames." + (ffCode != 0 ? " " + FfLogTail() : ""));
+                Log("FFmpeg: nÃ£o foram gravados frames." + (ffCode != 0 ? " " + FfLogTail() : ""));
                 DeleteRawFiles();
                 if (!_closingAfterRec)
-                    ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), Loc.T("Não foram gravados frames."));
+                    ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), Loc.T("NÃ£o foram gravados frames."));
                 return;
             }
 
@@ -3284,15 +3496,15 @@ public sealed partial class MainWindow : Window
                 DeleteRawFiles();
                 Log("Terminado: " + _out);
                 if (!_closingAfterRec)
-                    ShowNotice(InfoBarSeverity.Success, Loc.T("Gravação guardada"), Path.GetFileName(_out));
+                    ShowNotice(InfoBarSeverity.Success, Loc.T("GravaÃ§Ã£o guardada"), Path.GetFileName(_out));
             }
             else
             {
                 Log("Mux FFmpeg falhou: " + tail);
-                Log("Temporários mantidos: " + _rawVideo);
+                Log("TemporÃ¡rios mantidos: " + _rawVideo);
                 if (!_closingAfterRec)
                     ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"),
-                               Loc.T("Falha ao guardar a gravação. Vê o registo."));
+                               Loc.T("Falha ao guardar a gravaÃ§Ã£o. VÃª o registo."));
             }
         }
         catch (Exception ex)
@@ -3341,16 +3553,12 @@ public sealed partial class MainWindow : Window
         {
             if (d < -80)
                 a.AddRange(new[] { "-ss", (Math.Abs(d) / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) });
+            else if (d > 80)
+                a.AddRange(new[] { "-itsoffset", (d / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) });
             a.AddRange(new[] { "-i", _rawWav! });
             a.AddRange(new[] { "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy" });
-            if (d > 80)
-            {
-                var achans = new[] { 2, 1 };
-                int ch = achans[Math.Max(0, AudioChannelsBox.SelectedIndex)];
-                a.AddRange(new[] { "-af", ch == 1 ? $"adelay={d}" : $"adelay={d}|{d}" });
-            }
             AddAudioCodecArgs(a);
-            if (Math.Abs(d) >= 80) Log($"Sync A/V: vídeo={_syncV}ms áudio={_syncA}ms (Δ={d}ms)");
+            if (Math.Abs(d) >= 80) Log($"Sync A/V: vÃ­deo={_syncV}ms Ã¡udio={_syncA}ms (Î”={d}ms)");
         }
         else
             a.AddRange(new[] { "-map", "0:v:0", "-c:v", "copy" });
@@ -3365,9 +3573,15 @@ public sealed partial class MainWindow : Window
         {
             case 1: a.AddRange(new[] { "-c:a", "aac", "-b:a", kbps + "k" }); break;
             case 2: a.AddRange(new[] { "-c:a", "copy" }); break;
-            case 3: a.AddRange(new[] { "-c:a", "libmp3lame", "-b:a", kbps + "k" }); break;
+            case 3:
+                a.AddRange(new[] { "-c:a", "libmp3lame", "-b:a", kbps + "k" });
+                if (AudioRateBox.SelectedIndex == 2) a.AddRange(new[] { "-ar", "48000" });
+                break;
             case 4: a.AddRange(new[] { "-c:a", "flac" }); break;
-            case 5: a.AddRange(new[] { "-c:a", "libopus", "-b:a", kbps + "k" }); break;
+            case 5:
+                a.AddRange(new[] { "-c:a", "libopus", "-b:a", kbps + "k" });
+                if (AudioRateBox.SelectedIndex == 2) a.AddRange(new[] { "-ar", "48000" });
+                break;
         }
     }
 
@@ -3427,8 +3641,8 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// No arranque, trata dos temporários raw que ficaram de uma sessão morta:
-    /// apaga os vazios e recupera os que têm vídeo (mux com o WAV, se existir).
+    /// No arranque, trata dos temporÃ¡rios raw que ficaram de uma sessÃ£o morta:
+    /// apaga os vazios e recupera os que tÃªm vÃ­deo (mux com o WAV, se existir).
     /// </summary>
     private async Task RecoverOrphanTempsAsync()
     {
@@ -3474,7 +3688,7 @@ public sealed partial class MainWindow : Window
                             Log("Recuperado: " + Path.GetFileName(final));
                         }
                         else
-                            Log("Recuperação falhou: " + Path.GetFileName(v) + " — " +
+                            Log("RecuperaÃ§Ã£o falhou: " + Path.GetFileName(v) + " â€” " +
                                 (tail.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "").Trim());
                     }
                     else
@@ -3482,13 +3696,13 @@ public sealed partial class MainWindow : Window
                         File.Move(v, final);
                         if (File.Exists(wav)) File.Delete(wav);
                         recovered++;
-                        Log("Recuperado (só vídeo): " + Path.GetFileName(final));
+                        Log("Recuperado (sÃ³ vÃ­deo): " + Path.GetFileName(final));
                     }
                 }
-                catch (Exception ex) { Log("recuperar temporário: " + ex.Message); }
+                catch (Exception ex) { Log("recuperar temporÃ¡rio: " + ex.Message); }
             }
 
-            // WAV sem vídeo correspondente (vídeo apagado/corrompido).
+            // WAV sem vÃ­deo correspondente (vÃ­deo apagado/corrompido).
             foreach (var w in Directory.GetFiles(folder, "*.raw.mp4.wav", SearchOption.TopDirectoryOnly))
             {
                 try
@@ -3505,9 +3719,9 @@ public sealed partial class MainWindow : Window
             }
 
             if (recovered + removed > 0)
-                Log($"Temporários: {recovered} recuperado(s), {removed} removido(s).");
+                Log($"TemporÃ¡rios: {recovered} recuperado(s), {removed} removido(s).");
         }
-        catch (Exception ex) { Log("limpeza temporários: " + ex.Message); }
+        catch (Exception ex) { Log("limpeza temporÃ¡rios: " + ex.Message); }
     }
 
     // -----------------------------------------------------------------------
@@ -3525,7 +3739,7 @@ public sealed partial class MainWindow : Window
             var fallback = Path.ChangeExtension(_out, ".mp4");
             if (File.Exists(fallback)) File.Delete(fallback);
             File.Move(part, fallback);
-            Log("Remux não concluído — gravação guardada como " + Path.GetFileName(fallback));
+            Log("Remux nÃ£o concluÃ­do â€” gravaÃ§Ã£o guardada como " + Path.GetFileName(fallback));
         }
         catch (Exception ex) { Log("finalizar ficheiro: " + ex.Message); }
     }
@@ -3545,9 +3759,9 @@ public sealed partial class MainWindow : Window
                     long free = new DriveInfo(root).AvailableFreeSpace;
                     if (free < MinFreeBytes && !_stopRequested)
                     {
-                        Log($"Espaço em disco insuficiente: {free / 1_073_741_824.0:0.0} GB livres.");
-                        ShowNotice(InfoBarSeverity.Warning, Loc.T("Espaço em disco"),
-                                   Loc.T("Menos de 2 GB livres; a gravação foi parada."));
+                        Log($"EspaÃ§o em disco insuficiente: {free / 1_073_741_824.0:0.0} GB livres.");
+                        ShowNotice(InfoBarSeverity.Warning, Loc.T("EspaÃ§o em disco"),
+                                   Loc.T("Menos de 2 GB livres; a gravaÃ§Ã£o foi parada."));
                         StopRec();
                         return;
                     }
@@ -3592,12 +3806,12 @@ public sealed partial class MainWindow : Window
                 if (_captureSourceFps <= 0.0)
                     fps = $"   {Loc.T("Sem frames recentes")}";
                 else
-                    fps = $"   {Loc.T("Placa")}: {_captureSourceFps:0.0} → {_captureOutputFps:0.0}/{_captureTargetFps} fps";
+                    fps = $"   {Loc.T("Placa")}: {_captureSourceFps:0.0} â†’ {_captureOutputFps:0.0}/{_captureTargetFps} fps";
                 if (_rawMode)
                 {
-                    fps += $" · {Loc.T("repetidos")} {_captureRepeatedFrames} · {Loc.T("descartados")} {_captureDroppedFrames}";
+                    fps += $" Â· {Loc.T("repetidos")} {_captureRepeatedFrames} Â· {Loc.T("descartados")} {_captureDroppedFrames}";
                     if (_captureRecoveries > 0)
-                        fps += $" · {Loc.T("recuperações")} {_captureRecoveries}";
+                        fps += $" Â· {Loc.T("recuperaÃ§Ãµes")} {_captureRecoveries}";
                 }
             }
             else if (_lastFpsUpdate != DateTime.MinValue)
@@ -3616,7 +3830,7 @@ public sealed partial class MainWindow : Window
         FinalizeOutputIfNeeded();
         Log("Terminado: " + _out);
         if (!_closingAfterRec && File.Exists(_out))
-            ShowNotice(InfoBarSeverity.Success, Loc.T("Gravação guardada"), Path.GetFileName(_out));
+            ShowNotice(InfoBarSeverity.Success, Loc.T("GravaÃ§Ã£o guardada"), Path.GetFileName(_out));
         if (_pendingAudioCodec != null)
         {
             var codec = _pendingAudioCodec; var file = _out; _pendingAudioCodec = null;
@@ -3641,7 +3855,7 @@ public sealed partial class MainWindow : Window
     }
 
     // -----------------------------------------------------------------------
-    // Medidor de nível
+    // Medidor de nÃ­vel
     // -----------------------------------------------------------------------
 
     private double _lastLevelDb = -60;
@@ -3672,7 +3886,7 @@ public sealed partial class MainWindow : Window
     private void Log(string s)
     {
         _log.AppendLine(s);
-        // Manter ≤ 400 linhas no log para não crescer indefinidamente
+        // Manter â‰¤ 400 linhas no log para nÃ£o crescer indefinidamente
         LogBox.Text = _log.ToString();
     }
 
@@ -3723,7 +3937,7 @@ public sealed partial class MainWindow : Window
                 Bframes     = Math.Max(0, BframesBox.SelectedIndex),
                 Multipass   = Math.Max(0, MultipassBox.SelectedIndex),
                 Cq          = CqValues[Math.Clamp(CqBox.SelectedIndex, 0, CqValues.Length - 1)],
-                VideoEncoder = Math.Clamp(_videoEncoder, 0, 4),
+                VideoEncoder = Math.Clamp(_videoEncoder, 0, 5),
                 AudioMode   = Math.Max(0, AudioModeBox.SelectedIndex),
                 Abr         = Math.Max(0, AbrBox.SelectedIndex),
                 Container   = Math.Max(0, ContBox.SelectedIndex),
@@ -3773,7 +3987,7 @@ public sealed partial class MainWindow : Window
                         File.ReadAllText(SettingsPath));
             if (s == null) return;
             if (!string.IsNullOrEmpty(s.Language)) Loc.Lang = s.Language;
-            _videoEncoder = Math.Clamp(s.VideoEncoder, 0, 4);
+            _videoEncoder = Math.Clamp(s.VideoEncoder, 0, 5);
             BuildEncoderList();
 
             SetIdx(CodecBox,     s.Codec);
