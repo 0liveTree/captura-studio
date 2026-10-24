@@ -28,6 +28,8 @@ passar por MJPEG nem por um segundo leitor.
 - Áudio **AAC**, **PCM** (16/24/32-bit; 32 depende da placa, com fallback automático), **MP3**, **FLAC** ou **Opus** (os últimos via FFmpeg)
 - Contentores: **MP4, MKV, TS**
 - **Divisão automática** em segmentos (5/10/30/60 min)
+- **Modo portátil** (definições/perfis/motor/FFmpeg ao lado do bundle) e **proteção de disco**
+  (para a gravação antes de o disco encher)
 - Pré-visualização em tempo real (vídeo + áudio) com **volume**, **ecrã inteiro** e controlos
   auto-ocultáveis; o preview é servido pelo próprio processo que tem a placa
 - Spinner de ligação no preview (arco de 90° inspirado em **SVG Spinners**, MIT)
@@ -73,14 +75,14 @@ O motor fica em `uvc03-rec\target\release\captura-rec.exe`.
 ### Instalador (Setup.exe)
 
 Requer **Inno Setup 6** (`winget install --id JRSoftware.InnoSetup -e`). O script usa
-`installer\bundle` ou extrai `installer\CapturaStudio-1.0.2.zip`; se nenhum existir, corre
+`installer\bundle` ou extrai `installer\CapturaStudio-1.1.0.zip`; se nenhum existir, corre
 `build-bundle.ps1` (que precisa da app e do motor compilados).
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```
 
-Gera `installer\out\CapturaStudio-1.0.2-Setup.exe` e `installer\out\latest.json`.
+Gera `installer\out\CapturaStudio-1.1.0-Setup.exe` e `installer\out\latest.json`.
 
 ## Assinatura
 
@@ -88,14 +90,14 @@ O Captura Studio usa a **SignPath Foundation** para assinatura de código.
 
 > Code signing provided by SignPath.io, certificate by SignPath Foundation.
 
-Enquanto a candidatura está em aprovação, a build 1.0.2 e anteriores podem estar **não
+Enquanto a candidatura está em aprovação, a build 1.1.0 e anteriores podem estar **não
 assinadas**; nesse caso o Windows SmartScreen pode mostrar um aviso.
 
 ## Instalação
 
 ### A partir do instalador (recomendado)
 
-Descarrega `CapturaStudio-1.0.2-Setup.exe` na [página de Releases](../../releases/latest) e
+Descarrega `CapturaStudio-1.1.0-Setup.exe` na [página de Releases](../../releases/latest) e
 executa. O Setup instala por utilizador em `%LOCALAPPDATA%\CapturaStudio`, **sem admin**, cria
 o atalho no Menu Iniciar e regista a desinstalação. `settings.json` e `profiles.json` são
 preservados.
@@ -139,8 +141,8 @@ https://github.com/0liveTree/captura-studio/releases/latest/download/latest.json
   `installer\build-installer.ps1` gera os dois em `installer\out`:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 1.0.2 -Notes "..."
-gh release create v1.0.2 "installer\out\CapturaStudio-1.0.2-Setup.exe" "installer\out\latest.json" --title "Captura Studio 1.0.2" --notes "..."
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 1.1.0 -Notes "..."
+gh release create v1.1.0 "installer\out\CapturaStudio-1.1.0-Setup.exe" "installer\out\latest.json" --title "Captura Studio 1.1.0" --notes "..."
 ```
 
 - O Setup não está assinado; o SmartScreen pode avisar.

@@ -5,6 +5,34 @@ use std::time::Duration;
 
 use uvc03_rec::{record, Config, Status};
 
+/// Lê comandos do stdin: PAUSE, RESUME, STOP. Qualquer outra linha (ou Enter) para.
+fn stdin_control(stop: Arc<AtomicBool>) {
+    use std::io::BufRead;
+    let stdin = std::io::stdin();
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let n = stdin.lock().read_line(&mut line).unwrap_or(0);
+        if n == 0 {
+            break;
+        }
+        match line.trim().to_ascii_uppercase().as_str() {
+            "PAUSE" => {
+                uvc03_rec::PAUSED.store(true, Ordering::SeqCst);
+                eprintln!("PAUSED");
+            }
+            "RESUME" => {
+                uvc03_rec::PAUSED.store(false, Ordering::SeqCst);
+                eprintln!("RESUMED");
+            }
+            _ => {
+                stop.store(true, Ordering::SeqCst);
+                break;
+            }
+        }
+    }
+}
+
 fn main() {
     let mut cfg = Config::default();
     let mut preview_mode = false;
@@ -193,15 +221,9 @@ fn main() {
             .extension()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| cfg.container.clone());
-        {
+        if !no_stdin {
             let s = stop.clone();
-            if !no_stdin {
-                thread::spawn(move || {
-                    let mut line = String::new();
-                    std::io::stdin().read_line(&mut line).ok();
-                    s.store(true, Ordering::SeqCst);
-                });
-            }
+            thread::spawn(move || stdin_control(s));
         }
         println!("A gravar em segmentos de {}s ... prime Enter para parar.", secs);
         let mut idx = 1u32;
@@ -252,15 +274,9 @@ fn main() {
     if cfg.raw_video {
         // O stdout é o vídeo em bruto: nada de texto por lá.
         // A paragem pode vir do --seconds ou de uma linha no stdin (a app).
-        let s = stop.clone();
         if !no_stdin {
-            thread::spawn(move || {
-                let mut line = String::new();
-                // EOF (stdin fechado) não é ordem de paragem; só uma linha escrita.
-                if std::io::stdin().read_line(&mut line).unwrap_or(0) > 0 {
-                    s.store(true, Ordering::SeqCst);
-                }
-            });
+            let s = stop.clone();
+            thread::spawn(move || stdin_control(s));
         }
         match uvc03_rec::record_raw(&cfg, &stop) {
             Ok(s) => eprintln!(
@@ -282,18 +298,11 @@ fn main() {
         // Continuamos a aceitar Enter para permitir parar durante o arranque.
         if !no_stdin {
             let s = stop.clone();
-            thread::spawn(move || {
-                let mut line = String::new();
-                if std::io::stdin().read_line(&mut line).unwrap_or(0) > 0 {
-                    s.store(true, Ordering::SeqCst);
-                }
-            });
+            thread::spawn(move || stdin_control(s));
         }
     } else {
         println!("A gravar para {} ... prime Enter para parar.", cfg.out);
-        let mut line = String::new();
-        std::io::stdin().read_line(&mut line).ok();
-        stop.store(true, Ordering::SeqCst);
+        stdin_control(stop.clone());
     }
 
     match handle.join() {

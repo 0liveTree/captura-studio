@@ -92,6 +92,9 @@ public sealed class WinUISettings
     public string Folder       { get; set; } = "";
     public string UpdateUrl    { get; set; } = UpdateDefaults.ManifestUrl;
     public bool   UpdateAuto   { get; set; } = true;
+    public string HotkeyRec    { get; set; } = "Ctrl+Alt+F9";
+    public string HotkeyStop   { get; set; } = "Ctrl+Alt+F10";
+    public string HotkeyPause  { get; set; } = "Ctrl+Alt+F8";
 }
 
 public static class UpdateDefaults
@@ -115,6 +118,7 @@ public sealed class UpdateManifest
 public sealed class CaptureProfile
 {
     public string Name { get; set; } = "";
+    public string DeviceName { get; set; } = "";
     public string ResText { get; set; } = "";
     public string FpsText { get; set; } = "";
     public string FormatText { get; set; } = "";
@@ -234,7 +238,7 @@ public sealed partial class MainWindow : Window
     private bool _startupUpdateChecked;
     private Action? _notifyAction;
     private static string AppVersion =>
-        typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.0.2";
+        typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.1.0";
 
     // --- atalhos globais (Ctrl+Alt+F9/F10) ---
     private IntPtr _hotkeyHwnd;
@@ -244,8 +248,9 @@ public sealed partial class MainWindow : Window
     private const int WM_HOTKEY = 0x0312;
     private const int HOTKEY_REC = 1;
     private const int HOTKEY_STOP = 2;
-    private const uint MOD_ALT = 0x0001, MOD_CONTROL = 0x0002, MOD_NOREPEAT = 0x4000;
-    private const uint VK_F9 = 0x78, VK_F10 = 0x79;
+    private const int HOTKEY_PAUSE = 3;
+    private const uint MOD_ALT = 0x0001, MOD_CONTROL = 0x0002, MOD_SHIFT = 0x0004, MOD_NOREPEAT = 0x4000;
+    private const uint VK_F8 = 0x77, VK_F9 = 0x78, VK_F10 = 0x79;
     private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
     [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
@@ -254,17 +259,26 @@ public sealed partial class MainWindow : Window
     // --- timer de UI ---
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly DispatcherTimer _notifyTimer = new() { Interval = TimeSpan.FromSeconds(8) };
+    private DateTime _lastDiskCheck = DateTime.MinValue;
+    private bool _portableInit;
+    private bool _paused;
+    private string _hotkeyRec = "Ctrl+Alt+F9";
+    private string _hotkeyStop = "Ctrl+Alt+F10";
+    private string _hotkeyPause = "Ctrl+Alt+F8";
+    private const long MinFreeBytes = 2L * 1024 * 1024 * 1024;
 
-    private static string ExePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CapturaStudio", "captura-rec.exe");
+    private static readonly string BundleRoot = Path.GetFullPath(
+        Path.Combine(AppContext.BaseDirectory, ".."));
+    private static readonly bool IsPortable =
+        File.Exists(Path.Combine(BundleRoot, "portable.txt")) ||
+        File.Exists(Path.Combine(AppContext.BaseDirectory, "portable.txt"));
+    private static readonly string AppDataDir = IsPortable
+        ? BundleRoot
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CapturaStudio");
 
-    private static string SettingsPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CapturaStudio", "settings.json");
-
-    private static string ProfilesPath => Path.Combine(
-        Path.GetDirectoryName(SettingsPath)!, "profiles.json");
+    private static string ExePath => Path.Combine(AppDataDir, "captura-rec.exe");
+    private static string SettingsPath => Path.Combine(AppDataDir, "settings.json");
+    private static string ProfilesPath => Path.Combine(AppDataDir, "profiles.json");
 
     // ---------- fullscreen Win32 ----------
     private const int GWL_STYLE = -16;
@@ -506,6 +520,17 @@ public sealed partial class MainWindow : Window
         catch { }
         UpdateTitleBarInsets();
         AppWindow.Changed += (_, _) => UpdateTitleBarInsets();
+        AppWindow.Changed += (_, _) =>
+        {
+            try
+            {
+                if (AppWindow.Presenter is OverlappedPresenter p &&
+                    p.State == OverlappedPresenterState.Minimized)
+                    AppWindow.Hide();
+            }
+            catch { }
+        };
+        try { TrayIcon.LeftClickCommand = new TrayCommand(ShowFromTray); } catch { }
 
             try
             {
@@ -558,11 +583,11 @@ public sealed partial class MainWindow : Window
             await CheckForUpdatesAsync(silent: true);
         };
 
-        VideoBox.SelectionChanged += (_, _) => { RestartPreviewIfActive(); _ = LoadModesAsync(); };
+        VideoBox.SelectionChanged += (_, _) => { RestartPreviewIfActive(); _ = LoadModesAsync(); TryAutoProfile(); };
         AudioBox.SelectionChanged += (_, _) => RestartPreviewIfActive();
-        ResBox.SelectionChanged += (_, _) => { UpdateFpsForRes(); RestartPreviewIfActive(); };
-        FpsBox.SelectionChanged += (_, _) => RestartPreviewIfActive();
-        FormatBox.SelectionChanged += (_, _) => RestartPreviewIfActive();
+        ResBox.SelectionChanged += (_, _) => { UpdateFpsForRes(); RestartPreviewIfActive(); TryAutoProfile(); };
+        FpsBox.SelectionChanged += (_, _) => { RestartPreviewIfActive(); TryAutoProfile(); };
+        FormatBox.SelectionChanged += (_, _) => { RestartPreviewIfActive(); TryAutoProfile(); };
         AudioModeBox.SelectionChanged += (_, _) => UpdateAudioFields();
         CodecBox.SelectionChanged += (_, _) => UpdateVideoFields();
         HwBox.SelectionChanged += (_, _) => UpdateVideoFields();
@@ -1198,6 +1223,12 @@ public sealed partial class MainWindow : Window
         ThemeBox.SelectedIndex = Math.Max(0, _theme);
         AutoPrevSwitch.IsOn = _autoPreview;
         ShowInfoSwitch.IsOn = _showInfo;
+        _portableInit = false;
+        PortableSwitch.IsOn = IsPortable;
+        _portableInit = true;
+        HotkeyRecBox.Text = _hotkeyRec;
+        HotkeyStopBox.Text = _hotkeyStop;
+        HotkeyPauseBox.Text = _hotkeyPause;
         VolSlider2.Value = Math.Clamp(_previewVolume, 0, 1) * 100;
         if (LanguageBox2 != null) LanguageBox2.SelectedIndex = Loc.Lang == "en" ? 1 : 0;
         CodecBox2.SelectedIndex = Math.Max(0, CodecBox.SelectedIndex);
@@ -1383,10 +1414,87 @@ public sealed partial class MainWindow : Window
         SecGravacao.Visibility = i == 0 ? Visibility.Visible : Visibility.Collapsed;
         SecAparencia.Visibility = i == 1 ? Visibility.Visible : Visibility.Collapsed;
         SecSobre.Visibility = i == 2 ? Visibility.Visible : Visibility.Collapsed;
+        if (SecDiagnostico != null)
+            SecDiagnostico.Visibility = i == 3 ? Visibility.Visible : Visibility.Collapsed;
+        if (i == 3) RefreshDiagnostics();
+        bool readOnlyPage = i >= 2;
         if (SettingsEditActions != null)
-            SettingsEditActions.Visibility = i == 2 ? Visibility.Collapsed : Visibility.Visible;
+            SettingsEditActions.Visibility = readOnlyPage ? Visibility.Collapsed : Visibility.Visible;
         if (SettingsAboutActions != null)
-            SettingsAboutActions.Visibility = i == 2 ? Visibility.Visible : Visibility.Collapsed;
+            SettingsAboutActions.Visibility = readOnlyPage ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void DiagnosticsRefresh_Click(object sender, RoutedEventArgs e) => RefreshDiagnostics();
+
+    private void RefreshDiagnostics()
+    {
+        if (DiagText != null) DiagText.Text = BuildDiagnostics();
+    }
+
+    private string BuildDiagnostics()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Captura Studio " + AppVersion);
+        sb.AppendLine("OS: " + Environment.OSVersion.VersionString + " (" + RuntimeInformation.OSArchitecture + ")");
+        sb.AppendLine(".NET: " + RuntimeInformation.FrameworkDescription);
+        sb.AppendLine("Portable: " + (IsPortable ? "sim" : "nao"));
+        sb.AppendLine("Dados: " + AppDataDir);
+        sb.AppendLine("Motor: " + ExePath + (File.Exists(ExePath) ? "" : " (em falta)"));
+        sb.AppendLine("FFmpeg: " + (_ffmpegPath ?? "nao encontrado"));
+        sb.AppendLine("FFmpeg versao: " + (_ffmpegVersion ?? "?"));
+        sb.AppendLine("Pipeline: " + (_rawMode ? "raw/FFmpeg" : "Media Foundation"));
+        sb.AppendLine("Video: " + ((VideoBox.SelectedItem as DeviceItem)?.Name ?? "?"));
+        sb.AppendLine("Audio: " + ((AudioBox.SelectedItem as DeviceItem)?.Name ?? "?"));
+        sb.AppendLine("Modo: " + (ResBox.SelectedItem as ComboBoxItem)?.Content + " @" +
+                      (FpsBox.SelectedItem as ComboBoxItem)?.Content + " " +
+                      (FormatBox.SelectedItem as ComboBoxItem)?.Content);
+        sb.AppendLine("Codec: " + (CodecBox.SelectedItem as ComboBoxItem)?.Content + " / " +
+                      (HwBox.SelectedItem as ComboBoxItem)?.Content);
+        sb.AppendLine("Audio cfg: " + (AudioModeBox.SelectedItem as ComboBoxItem)?.Content + " " +
+                      (AudioRateBox.SelectedItem as ComboBoxItem)?.Content + " " +
+                      (AudioChannelsBox.SelectedItem as ComboBoxItem)?.Content + " " +
+                      (AudioBitsBox.SelectedItem as ComboBoxItem)?.Content);
+        sb.AppendLine("Contentor: " + (ContBox.SelectedItem as ComboBoxItem)?.Content);
+        sb.AppendLine("Atualizacoes: " + (UpdateUrlBox?.Text ?? ""));
+        sb.AppendLine();
+        sb.AppendLine("--- registo ---");
+        try
+        {
+            string log = LogBox.Text;
+            sb.AppendLine(log.Length > 6000 ? log[^6000..] : log);
+        }
+        catch { }
+        return sb.ToString();
+    }
+
+    private async void DiagnosticsExport_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.SuggestedFileName = "captura-diagnostico";
+            picker.FileTypeChoices.Add("Texto", new List<string> { ".txt" });
+            var f = await picker.PickSaveFileAsync();
+            if (f != null)
+            {
+                await Windows.Storage.FileIO.WriteTextAsync(f, DiagText.Text);
+                ShowNotice(InfoBarSeverity.Success, Loc.T("Diagnóstico"), Loc.T("Relatório exportado."));
+            }
+        }
+        catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
+    }
+
+    private void DiagnosticsCopy_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            dp.SetText(DiagText.Text);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+            ShowNotice(InfoBarSeverity.Success, Loc.T("Diagnóstico"), Loc.T("Copiado."));
+        }
+        catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
     }
 
     private void SettingsVolume_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
@@ -1413,6 +1521,14 @@ public sealed partial class MainWindow : Window
         _theme = Math.Max(0, ThemeBox.SelectedIndex);
         _autoPreview = AutoPrevSwitch.IsOn;
         _showInfo = ShowInfoSwitch.IsOn;
+        if (HotkeyRecBox != null)
+        {
+            _hotkeyRec = string.IsNullOrWhiteSpace(HotkeyRecBox.Text) ? "Ctrl+Alt+F9" : HotkeyRecBox.Text.Trim();
+            _hotkeyStop = string.IsNullOrWhiteSpace(HotkeyStopBox.Text) ? "Ctrl+Alt+F10" : HotkeyStopBox.Text.Trim();
+            _hotkeyPause = string.IsNullOrWhiteSpace(HotkeyPauseBox.Text) ? "Ctrl+Alt+F8" : HotkeyPauseBox.Text.Trim();
+            UnregisterGlobalHotkeys();
+            InitGlobalHotkeys();
+        }
         CodecBox.SelectedIndex = Math.Max(0, CodecBox2.SelectedIndex);
         BitrateBox.SelectedIndex = Math.Max(0, BitrateBox2.SelectedIndex);
         HwBox.SelectedIndex = Math.Max(0, HwBox2.SelectedIndex);
@@ -1467,6 +1583,22 @@ public sealed partial class MainWindow : Window
             if (f != null) target.Text = f.Path;
         }
         catch (Exception ex) { Log("pasta: " + ex.Message); }
+    }
+
+    private void PortableSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_portableInit) return;
+        try
+        {
+            var marker = Path.Combine(BundleRoot, "portable.txt");
+            if (PortableSwitch.IsOn)
+                File.WriteAllText(marker, "portable");
+            else if (File.Exists(marker))
+                File.Delete(marker);
+            ShowNotice(InfoBarSeverity.Informational, Loc.T("Modo portátil"),
+                       Loc.T("Reinicia a app para aplicar."));
+        }
+        catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
     }
 
     private void SettingsReset_Click(object sender, RoutedEventArgs e)
@@ -1592,6 +1724,7 @@ public sealed partial class MainWindow : Window
     {
         var cands = new List<string>();
         cands.Add(Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg.exe"));
+        cands.Add(Path.Combine(AppDataDir, "ffmpeg", "ffmpeg.exe"));
         cands.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CapturaStudio", "ffmpeg", "ffmpeg.exe"));
         var path = Environment.GetEnvironmentVariable("PATH") ?? "";
         foreach (var dir in path.Split(';', StringSplitOptions.RemoveEmptyEntries))
@@ -1886,6 +2019,9 @@ public sealed partial class MainWindow : Window
         _timer.Start();
         BtnRec.IsEnabled  = false;
         BtnStop.IsEnabled = true;
+        BtnPause.IsEnabled = true;
+        BtnPause.Content = Loc.T("Pausar");
+        _paused = false;
         StatusText.Text   = Loc.T("A aguardar sinal da placa");
         Log("A aguardar sinal da placa: " + _out);
         BeginRecordingUi(wasPreview, au);
@@ -2242,7 +2378,8 @@ public sealed partial class MainWindow : Window
             Container = Math.Max(0, ContBox.SelectedIndex),
             Duration = Math.Max(0, DurBox.SelectedIndex),
             Split = Math.Max(0, SplitBox.SelectedIndex),
-            FileTemplate = _fileTemplate
+            FileTemplate = _fileTemplate,
+            DeviceName = (VideoBox.SelectedItem as DeviceItem)?.Name ?? ""
         };
     }
 
@@ -2404,11 +2541,13 @@ public sealed partial class MainWindow : Window
             _wndProc = HotkeyWndProc;
             _oldWndProc = SetWindowLongPtr(_hotkeyHwnd, GWLP_WNDPROC,
                 Marshal.GetFunctionPointerForDelegate(_wndProc));
-            bool a = RegisterHotKey(_hotkeyHwnd, HOTKEY_REC,
-                MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F9);
-            bool b = RegisterHotKey(_hotkeyHwnd, HOTKEY_STOP,
-                MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_F10);
-            Log($"Atalhos globais Ctrl+Alt+F9/F10: {a}/{b}");
+            var (rm, rk) = ParseHotkey(_hotkeyRec, MOD_CONTROL | MOD_ALT, VK_F9);
+            var (sm, sk) = ParseHotkey(_hotkeyStop, MOD_CONTROL | MOD_ALT, VK_F10);
+            var (pm, pk) = ParseHotkey(_hotkeyPause, MOD_CONTROL | MOD_ALT, VK_F8);
+            bool a = RegisterHotKey(_hotkeyHwnd, HOTKEY_REC, rm | MOD_NOREPEAT, rk);
+            bool b = RegisterHotKey(_hotkeyHwnd, HOTKEY_STOP, sm | MOD_NOREPEAT, sk);
+            bool c = RegisterHotKey(_hotkeyHwnd, HOTKEY_PAUSE, pm | MOD_NOREPEAT, pk);
+            Log($"Atalhos globais: {_hotkeyRec}={a}, {_hotkeyStop}={b}, {_hotkeyPause}={c}");
         }
         catch (Exception ex) { Log("atalhos globais: " + ex.Message); }
     }
@@ -2428,6 +2567,11 @@ public sealed partial class MainWindow : Window
                 {
                     if (_proc != null) StopRec();
                 });
+            else if (id == HOTKEY_PAUSE)
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (_proc != null) BtnPause_Click(this, new RoutedEventArgs());
+                });
             return IntPtr.Zero;
         }
         return CallWindowProc(_oldWndProc, hWnd, msg, wParam, lParam);
@@ -2440,11 +2584,101 @@ public sealed partial class MainWindow : Window
             if (_hotkeyHwnd == IntPtr.Zero) return;
             UnregisterHotKey(_hotkeyHwnd, HOTKEY_REC);
             UnregisterHotKey(_hotkeyHwnd, HOTKEY_STOP);
+            UnregisterHotKey(_hotkeyHwnd, HOTKEY_PAUSE);
             if (_oldWndProc != IntPtr.Zero)
                 SetWindowLongPtr(_hotkeyHwnd, GWLP_WNDPROC, _oldWndProc);
             _hotkeyHwnd = IntPtr.Zero;
         }
         catch { }
+    }
+
+    private static (uint Mods, uint Vk) ParseHotkey(string text, uint defMods, uint defVk)
+    {
+        uint mods = 0, vk = 0;
+        foreach (var raw in (text ?? "").Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var p = raw.Trim().ToUpperInvariant();
+            switch (p)
+            {
+                case "CTRL":
+                case "CONTROL": mods |= MOD_CONTROL; break;
+                case "ALT": mods |= MOD_ALT; break;
+                case "SHIFT": mods |= MOD_SHIFT; break;
+                default:
+                    if (p.Length >= 2 && p[0] == 'F' && int.TryParse(p[1..], out var fn) && fn is >= 1 and <= 12)
+                        vk = (uint)(0x70 + fn - 1);
+                    else if (p.Length == 1 && char.IsLetterOrDigit(p[0]))
+                        vk = char.ToUpperInvariant(p[0]);
+                    break;
+            }
+        }
+        return (mods == 0 ? defMods : mods, vk == 0 ? defVk : vk);
+    }
+
+    private bool _autoProfile = true;
+
+    private void TryAutoProfile()
+    {
+        if (!_autoProfile || _loadingProfilePresets || _profilePresets.Count == 0 || _proc != null) return;
+        string device = (VideoBox.SelectedItem as DeviceItem)?.Name ?? "";
+        string res = SelectedComboText(ResBox);
+        string fps = SelectedComboText(FpsBox);
+        string fmt = SelectedComboText(FormatBox);
+        int idx = _profilePresets.FindIndex(p =>
+            (string.IsNullOrEmpty(p.DeviceName) || string.Equals(p.DeviceName, device, StringComparison.OrdinalIgnoreCase)) &&
+            string.Equals(p.ResText, res, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(p.FpsText, fps, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(p.FormatText, fmt, StringComparison.OrdinalIgnoreCase));
+        if (idx < 0 || ProfilePresetBox.SelectedIndex == idx + 1) return;
+        _autoProfile = false;
+        try { ProfilePresetBox.SelectedIndex = idx + 1; }
+        finally { _autoProfile = true; }
+    }
+
+    private async void ProfilesExport_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileSavePicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.SuggestedFileName = "captura-perfis";
+            picker.FileTypeChoices.Add("JSON", new List<string> { ".json" });
+            var f = await picker.PickSaveFileAsync();
+            if (f == null) return;
+            await Windows.Storage.FileIO.WriteTextAsync(f,
+                System.Text.Json.JsonSerializer.Serialize(_profilePresets,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+            ShowNotice(InfoBarSeverity.Success, Loc.T("Perfis"), Loc.T("Perfis exportados."));
+        }
+        catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
+    }
+
+    private async void ProfilesImport_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            picker.FileTypeFilter.Add(".json");
+            var f = await picker.PickSingleFileAsync();
+            if (f == null) return;
+            var imported = System.Text.Json.JsonSerializer.Deserialize<List<CaptureProfile>>(
+                await Windows.Storage.FileIO.ReadTextAsync(f)) ?? new();
+            int added = 0, replaced = 0;
+            foreach (var p in imported)
+            {
+                if (string.IsNullOrWhiteSpace(p.Name)) continue;
+                int i = _profilePresets.FindIndex(x =>
+                    string.Equals(x.Name, p.Name, StringComparison.OrdinalIgnoreCase));
+                if (i >= 0) { _profilePresets[i] = p; replaced++; }
+                else { _profilePresets.Add(p); added++; }
+            }
+            SaveProfilePresets();
+            LoadProfilePresets();
+            ShowNotice(InfoBarSeverity.Success, Loc.T("Perfis"),
+                $"{added} {Loc.T("novos")}, {replaced} {Loc.T("substituídos")}.");
+        }
+        catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
     }
 
     private void BeginRecordingUi(bool wasPreview, int au)
@@ -2586,6 +2820,7 @@ public sealed partial class MainWindow : Window
         _proc.ErrorDataReceived += (_, ev) =>
         {
             if (ev.Data == null) return;
+            if (ev.Data == "PAUSED" || ev.Data == "RESUMED") { ParseEngineLine(ev.Data); return; }
             if (ev.Data.StartsWith("CAPTURE_", StringComparison.Ordinal))
                 ParseEngineLine(ev.Data);
             else
@@ -2798,6 +3033,26 @@ public sealed partial class MainWindow : Window
 
     private void ParseEngineLine(string line)
     {
+        if (line == "PAUSED")
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _paused = true;
+                BtnPause.Content = Loc.T("Retomar");
+                StatusText.Text = Loc.T("Pausado");
+            });
+            return;
+        }
+        if (line == "RESUMED")
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                _paused = false;
+                BtnPause.Content = Loc.T("Pausar");
+                StatusText.Text = Loc.T("A gravar");
+            });
+            return;
+        }
         if (line.StartsWith("LVL ", StringComparison.Ordinal))
         {
             if (float.TryParse(line.AsSpan(4),
@@ -2922,6 +3177,51 @@ public sealed partial class MainWindow : Window
 
     private void BtnStop_Click(object sender, RoutedEventArgs e) => StopRec();
 
+    private void BtnPause_Click(object sender, RoutedEventArgs e)
+    {
+        if (_proc == null) return;
+        try
+        {
+            _paused = !_paused;
+            _proc.StandardInput.WriteLine(_paused ? "PAUSE" : "RESUME");
+            _proc.StandardInput.Flush();
+            BtnPause.Content = _paused ? Loc.T("Retomar") : Loc.T("Pausar");
+            StatusText.Text = _paused ? Loc.T("Pausado") : Loc.T("A gravar");
+        }
+        catch (Exception ex) { Log("Pausa: " + ex.Message); }
+    }
+
+    private void TrayIcon_LeftClick(object sender, RoutedEventArgs e) => ShowFromTray();
+
+    private sealed class TrayCommand : System.Windows.Input.ICommand
+    {
+        private readonly Action _action;
+        public TrayCommand(Action action) => _action = action;
+        public event EventHandler? CanExecuteChanged;
+        public bool CanExecute(object? parameter) => true;
+        public void Execute(object? parameter) => _action();
+    }
+    private void TrayShow_Click(object sender, RoutedEventArgs e) => ShowFromTray();
+    private void TrayRecord_Click(object sender, RoutedEventArgs e)
+    {
+        ShowFromTray();
+        if (_proc == null) BtnRec_Click(this, new RoutedEventArgs());
+    }
+    private void TrayStop_Click(object sender, RoutedEventArgs e) { if (_proc != null) StopRec(); }
+    private void TrayPause_Click(object sender, RoutedEventArgs e) { if (_proc != null) BtnPause_Click(this, new RoutedEventArgs()); }
+    private void TrayExit_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void ShowFromTray()
+    {
+        try
+        {
+            if (AppWindow.Presenter is OverlappedPresenter p) p.Restore();
+            AppWindow.Show();
+            Activate();
+        }
+        catch { }
+    }
+
     private void StopRec()
     {
         var proc = _proc;
@@ -3014,6 +3314,9 @@ public sealed partial class MainWindow : Window
             _timer.Stop();
             BtnRec.IsEnabled  = true;
             BtnStop.IsEnabled = false;
+            BtnPause.IsEnabled = false;
+            BtnPause.Content = Loc.T("Pausar");
+            _paused = false;
             _captureReady = false;
             _stopRequested = false;
             _captureHealthText = "";
@@ -3231,6 +3534,27 @@ public sealed partial class MainWindow : Window
     {
         if (_proc == null) return;
         var now = DateTime.Now;
+        if (now - _lastDiskCheck >= TimeSpan.FromSeconds(2))
+        {
+            _lastDiskCheck = now;
+            try
+            {
+                var root = Path.GetPathRoot(Path.GetFullPath(_out));
+                if (!string.IsNullOrEmpty(root))
+                {
+                    long free = new DriveInfo(root).AvailableFreeSpace;
+                    if (free < MinFreeBytes && !_stopRequested)
+                    {
+                        Log($"Espaço em disco insuficiente: {free / 1_073_741_824.0:0.0} GB livres.");
+                        ShowNotice(InfoBarSeverity.Warning, Loc.T("Espaço em disco"),
+                                   Loc.T("Menos de 2 GB livres; a gravação foi parada."));
+                        StopRec();
+                        return;
+                    }
+                }
+            }
+            catch { }
+        }
         var el   = now - (_captureReady ? _start : _waitStart);
         long sz  = 0;
         try
@@ -3426,7 +3750,10 @@ public sealed partial class MainWindow : Window
                 Language    = Loc.Lang,
                 Folder      = FolderBox.Text,
                 UpdateUrl   = string.IsNullOrWhiteSpace(_updateUrl) ? UpdateDefaults.ManifestUrl : _updateUrl,
-                UpdateAuto  = _updateAuto
+                UpdateAuto  = _updateAuto,
+                HotkeyRec   = _hotkeyRec,
+                HotkeyStop  = _hotkeyStop,
+                HotkeyPause = _hotkeyPause
             };
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
             File.WriteAllText(SettingsPath,
@@ -3488,6 +3815,9 @@ public sealed partial class MainWindow : Window
             _fileTemplate = s.FileTemplate;
             _updateUrl = string.IsNullOrWhiteSpace(s.UpdateUrl) ? UpdateDefaults.ManifestUrl : s.UpdateUrl.Trim();
             _updateAuto = s.UpdateAuto;
+            _hotkeyRec = string.IsNullOrWhiteSpace(s.HotkeyRec) ? "Ctrl+Alt+F9" : s.HotkeyRec.Trim();
+            _hotkeyStop = string.IsNullOrWhiteSpace(s.HotkeyStop) ? "Ctrl+Alt+F10" : s.HotkeyStop.Trim();
+            _hotkeyPause = string.IsNullOrWhiteSpace(s.HotkeyPause) ? "Ctrl+Alt+F8" : s.HotkeyPause.Trim();
             _savedResText = s.ResText;
             _savedFpsText = s.FpsText;
             _savedFmtText = s.FormatText;

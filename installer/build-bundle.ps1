@@ -36,7 +36,7 @@ if (-not $Version) {
         $xml = Get-Content $csproj -Raw
         if ($xml -match '<Version>([^<]+)</Version>') { $Version = $Matches[1].Trim() }
     }
-    if (-not $Version) { $Version = '1.0.2' }
+    if (-not $Version) { $Version = '1.1.0' }
 }
 $appSrc = Join-Path $root 'uwc03-winui\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64'
 $engineSrc = Join-Path $root 'uvc03-rec\target\release\captura-rec.exe'

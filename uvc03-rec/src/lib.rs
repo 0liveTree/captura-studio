@@ -1,5 +1,8 @@
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
+
+/// Pausa global, controlada pelo stdin do motor (`PAUSE`/`RESUME`).
+pub static PAUSED: AtomicBool = AtomicBool::new(false);
 use std::thread;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -844,9 +847,23 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
         let mut frame_generation = 0u64;
         let mut last_output_generation = 0u64;
         let mut ready_sent = false;
+        let mut paused = false;
+        let mut pause_started = Instant::now();
+        let mut paused_total = Duration::ZERO;
         loop {
             if stop.load(Ordering::Relaxed) {
                 break;
+            }
+            if PAUSED.load(Ordering::Relaxed) {
+                if !paused {
+                    paused = true;
+                    pause_started = Instant::now();
+                }
+                thread::sleep(Duration::from_millis(20));
+                continue;
+            } else if paused {
+                paused = false;
+                paused_total += pause_started.elapsed();
             }
             let wait = if let Some(first) = first_frame {
                 let deadline = first + Duration::from_secs_f64(next_idx.max(0) as f64 / fps_i as f64);
@@ -894,12 +911,12 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
                 }
             }
             if let (Some(sec), Some(tf)) = (cfg.seconds, first_frame) {
-                if tf.elapsed() >= Duration::from_secs(sec) {
+                if tf.elapsed().saturating_sub(paused_total) >= Duration::from_secs(sec) {
                     break;
                 }
             }
 
-            let secs = first_frame.unwrap().elapsed().as_secs_f64();
+            let secs = (first_frame.unwrap().elapsed() - paused_total).as_secs_f64();
             let target = (secs * fps_i as f64).floor() as i64;
             if target < next_idx { continue; }
             let mut copies = target - next_idx + 1;
@@ -1563,6 +1580,10 @@ unsafe fn write_wav_pcm(
     loop {
         if stop.load(Ordering::Relaxed) {
             break;
+        }
+        if PAUSED.load(Ordering::Relaxed) {
+            thread::sleep(Duration::from_millis(20));
+            continue;
         }
         let mut flags = 0u32;
         let mut ts = 0i64;
