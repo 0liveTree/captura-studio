@@ -140,6 +140,16 @@ pub fn set_level_peak(level: &AtomicU32, bytes: &[u8], bits: u32) {
         }
         let db = 20.0 * (peak as f32 / 8_388_608.0).max(1e-6).log10();
         level.store(db.to_bits(), Ordering::Relaxed);
+    } else if bits == 32 {
+        for c in bytes.chunks_exact(4) {
+            let v = i32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+            let a = v.saturating_abs();
+            if a > peak {
+                peak = a;
+            }
+        }
+        let db = 20.0 * (peak as f32 / 2_147_483_648.0).max(1e-6).log10();
+        level.store(db.to_bits(), Ordering::Relaxed);
     } else {
         for c in bytes.chunks_exact(2) {
             let v = i16::from_le_bytes([c[0], c[1]]) as i32;
@@ -416,6 +426,14 @@ impl PreviewHub {
             for c in bytes.chunks_exact(3) {
                 out.push(c[1]);
                 out.push(c[2]);
+            }
+            let _ = tx.try_send(out);
+        } else if bits == 32 {
+            let mut out = Vec::with_capacity(bytes.len() / 4 * 2);
+            for c in bytes.chunks_exact(4) {
+                // PCM 32-bit little-endian: os 16 bits altos são o valor 16-bit.
+                out.push(c[2]);
+                out.push(c[3]);
             }
             let _ = tx.try_send(out);
         }
@@ -1584,11 +1602,16 @@ unsafe fn open_audio_pcm(cfg: &Config) -> windows::core::Result<(SendReader, Pcm
     let reader = MFCreateSourceReaderFromMediaSource(&src, None)?;
 
     let mut last: Option<windows::core::Error> = None;
-    // prefer 24-bit, fall back to 16-bit
+    // Pede a profundidade escolhida; se a placa não a suportar, tenta 24 e depois 16.
     let ach = cfg.audio_channels.max(1) as u32;
-    let fl = if cfg.audio_bits >= 24 { 3u32 } else { 2u32 };
     let arate = cfg.audio_rate;
-    let opts: Vec<(u32, u32, u32)> = if fl == 3 {
+    let opts: Vec<(u32, u32, u32)> = if cfg.audio_bits >= 32 {
+        vec![
+            (32, ach * 4, arate * ach * 4),
+            (24, ach * 3, arate * ach * 3),
+            (16, ach * 2, arate * ach * 2),
+        ]
+    } else if cfg.audio_bits >= 24 {
         vec![(24, ach * 3, arate * ach * 3), (16, ach * 2, arate * ach * 2)]
     } else {
         vec![(16, ach * 2, arate * ach * 2)]

@@ -42,6 +42,8 @@ public static class Loc
         ["CQ (QUALIDADE)"] = "CQ (QUALITY)",
         ["CQ aplica-se aos modos de quantização constante e qualidade alvo."] =
             "CQ applies to constant quantizer and target-quality modes.",
+        ["CQ: 0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática. Aplica-se a CQP/qualidade alvo."] =
+            "CQ: 0 = maximum quality, 51 = minimum; 18–32 is the practical range. Applies to CQP/target-quality modes.",
         ["BITRATE ÁUDIO (kbps)"] = "AUDIO BITRATE (kbps)",
         ["TAXA DE AMOSTRAGEM"] = "SAMPLE RATE",
         ["CANAIS"] = "CHANNELS",
@@ -168,6 +170,31 @@ public static class Loc
         ["Nome do perfil"] = "Profile name",
         ["Eliminar este perfil?"] = "Delete this profile?",
         ["O nome do perfil não pode estar vazio."] = "The profile name cannot be empty.",
+        ["Atualizações"] = "Updates",
+        ["URL do manifesto"] = "Manifest URL",
+        ["Verificar ao arrancar"] = "Check on startup",
+        ["Verificar atualizações"] = "Check for updates",
+        ["Versão instalada:"] = "Installed version:",
+        ["A verificar…"] = "Checking…",
+        ["Configura a URL do manifesto."] = "Configure the manifest URL.",
+        ["Resposta de atualização inválida."] = "Invalid update response.",
+        ["Versão inválida no manifesto."] = "Invalid version in manifest.",
+        ["Estás na versão mais recente."] = "You are on the latest version.",
+        ["Não foi possível verificar atualizações."] = "Could not check for updates.",
+        ["Ainda não há release publicada (ou o repositório é privado)."] =
+            "No release published yet (or the repository is private).",
+        ["Tempo esgotado ao verificar atualizações."] = "Timed out checking for updates.",
+        ["Sem ligação ao GitHub."] = "No connection to GitHub.",
+        ["Nova versão disponível"] = "New version available",
+        ["Nova versão disponível:"] = "New version available:",
+        ["Nova versão:"] = "New version:",
+        ["Vê Definições → Sobre para atualizar."] = "See Settings → About to update.",
+        ["Ver"] = "View",
+        ["Atualização disponível"] = "Update available",
+        ["Transferir"] = "Download",
+        ["Agora não"] = "Not now",
+        ["A app vai fechar durante a instalação."] = "The app will close during installation.",
+        ["URL de atualização inválida."] = "Invalid update URL.",
 
         // sobre
         ["Captura Studio é um gravador de captura de vídeo nativo para Windows, de código aberto, escrito em Rust e WinUI 3."] =

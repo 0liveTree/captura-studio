@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.Net.Sockets;
+using System.Net.Http;
 using System.Threading;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -89,6 +90,22 @@ public sealed class WinUISettings
     public string FormatText { get; set; } = "";
     public string Language { get; set; } = "pt";
     public string Folder       { get; set; } = "";
+    public string UpdateUrl    { get; set; } = UpdateDefaults.ManifestUrl;
+    public bool   UpdateAuto   { get; set; } = true;
+}
+
+public static class UpdateDefaults
+{
+    public const string ManifestUrl =
+        "https://github.com/0liveTree/captura-studio/releases/latest/download/latest.json";
+}
+
+public sealed class UpdateManifest
+{
+    public string Version { get; set; } = "";
+    public string Url { get; set; } = "";
+    public string Sha256 { get; set; } = "";
+    public string Notes { get; set; } = "";
 }
 
 // ---------------------------------------------------------------------------
@@ -209,6 +226,15 @@ public sealed partial class MainWindow : Window
     // --- perfis/presets ---
     private List<CaptureProfile> _profilePresets = new();
     private bool _loadingProfilePresets;
+
+    // --- atualizações ---
+    private string _updateUrl = UpdateDefaults.ManifestUrl;
+    private bool _updateAuto = true;
+    private bool _updateChecking;
+    private bool _startupUpdateChecked;
+    private Action? _notifyAction;
+    private static string AppVersion =>
+        typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.0.1";
 
     // --- atalhos globais (Ctrl+Alt+F9/F10) ---
     private IntPtr _hotkeyHwnd;
@@ -442,6 +468,18 @@ public sealed partial class MainWindow : Window
             PreviewBorder.Height = on ? Math.Max(320, AppWindow.Size.Height / s2) : 620;
         });
     }
+    private void UpdateTitleBarInsets()
+    {
+        try
+        {
+            // 160 DIPs cobrem minimizar/maximizar/fechar (138) + folga.
+            double right = Math.Max(160, AppWindow.TitleBar.RightInset);
+            HeaderRow.Margin = new Thickness(0, 0, right, 0);
+            NotifyBar.Margin = new Thickness(24, 12, 24 + right, 0);
+        }
+        catch { }
+    }
+
     public MainWindow()
     {
         // O idioma tem de estar definido ANTES de InitializeComponent/SaveSettings:
@@ -462,6 +500,13 @@ public sealed partial class MainWindow : Window
         }
         catch { }
 
+        try { AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "videotape.ico")); }
+        catch { }
+        try { AboutIcon.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "videotape.png"))); }
+        catch { }
+        UpdateTitleBarInsets();
+        AppWindow.Changed += (_, _) => UpdateTitleBarInsets();
+
             try
             {
                 var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
@@ -479,7 +524,7 @@ public sealed partial class MainWindow : Window
         FolderBox.Text = Path.Combine(up, "Videos", "Captura Studio");
 
         _timer.Tick += (_, _) => Tick();
-        _notifyTimer.Tick += (_, _) => { _notifyTimer.Stop(); NotifyBar.Visibility = Visibility.Collapsed; };
+        _notifyTimer.Tick += (_, _) => { _notifyTimer.Stop(); NotifyBar.Visibility = Visibility.Collapsed; _notifyAction = null; };
 
         // Em WinUI 3, o evento Closed é disparado antes do processo sair,
         // mas o handler tem de ser síncrono para garantir que SaveSettings() corre.
@@ -501,6 +546,17 @@ public sealed partial class MainWindow : Window
         };
         Closed += (_, _) => UnregisterGlobalHotkeys();
         RootGrid.Loaded += (_, _) => InitGlobalHotkeys();
+        RootGrid.Loaded += (_, _) => UpdateTitleBarInsets();
+        UpdateUrlBox.LostFocus += (_, _) => SaveUpdateSettings();
+        UpdateAutoSwitch.Toggled += (_, _) => SaveUpdateSettings();
+        RootGrid.Loaded += async (_, _) =>
+        {
+            if (_startupUpdateChecked) return;
+            _startupUpdateChecked = true;
+            if (!_updateAuto) return;
+            await Task.Delay(3000);
+            await CheckForUpdatesAsync(silent: true);
+        };
 
         VideoBox.SelectionChanged += (_, _) => { RestartPreviewIfActive(); _ = LoadModesAsync(); };
         AudioBox.SelectionChanged += (_, _) => RestartPreviewIfActive();
@@ -522,7 +578,7 @@ public sealed partial class MainWindow : Window
         RateBox.SelectionChanged += (_, _) => UpdateVideoFields();
         RateBox2.SelectionChanged += (_, _) => UpdateEncoderFields2();
         EncoderBox2.SelectionChanged += (_, _) => UpdateEncoderFields2();
-        QualityHint.Text = Loc.T("CQ aplica-se aos modos de quantização constante e qualidade alvo.");
+        QualityHint.Text = Loc.T("CQ: 0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática. Aplica-se a CQP/qualidade alvo.");
         FolderBox.TextChanged += (_, _) => SaveSettings();
         _cursorTimer.Interval = TimeSpan.FromMilliseconds(200);
         _cursorTimer.Tick += (_, _) =>
@@ -763,7 +819,7 @@ public sealed partial class MainWindow : Window
         _pvCts = new CancellationTokenSource();
         var ct = _pvCts.Token;
         if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Parar pré-visualização"); else BtnPreview.Content = Loc.T("Parar pré-visualização");
-        PreviewHint.Text = "A ligar...";
+        ShowPreviewLoading("A ligar...");
         _ = Task.Run(() => PreviewVideoLoop(ct));
         if (PreviewAudioSwitch.IsOn)
         {
@@ -947,7 +1003,7 @@ public sealed partial class MainWindow : Window
         }
         if (tcp == null)
         {
-            DispatcherQueue.TryEnqueue(() => PreviewHint.Text = "Sem ligação ao motor (dispositivo ocupado?)");
+            DispatcherQueue.TryEnqueue(() => ShowPreviewMessage("Sem ligação ao motor (dispositivo ocupado?)"));
             return;
         }
         _pvVideo = tcp;
@@ -973,7 +1029,7 @@ public sealed partial class MainWindow : Window
                 _pvBmp.Invalidate();
                 PreviewImage.Source = _pvBmp;
                 FsImage.Source = _pvBmp;
-                PreviewHint.Visibility = Visibility.Collapsed;
+                HidePreviewLoading();
                 });
         }
     }
@@ -1050,6 +1106,15 @@ public sealed partial class MainWindow : Window
             catch { break; }
             if (n <= 0) break;
             if (_audioProvider != null) _audioProvider.AddSamples(buf, 0, n);
+            int peak = 0;
+            for (int i = 0; i + 1 < n; i += 2)
+            {
+                short sample = (short)(buf[i] | (buf[i + 1] << 8));
+                int abs = sample == short.MinValue ? 32768 : Math.Abs((int)sample);
+                if (abs > peak) peak = abs;
+            }
+            float pdb = peak > 0 ? (float)(20 * Math.Log10(peak / 32768.0)) : -60f;
+            DispatcherQueue.TryEnqueue(() => UpdateLevel(pdb));
             if (!_audioLogged && n > 0) { _audioLogged = true; DispatcherQueue.TryEnqueue(() => Log("Preview: a receber audio (" + n + " bytes)")); }
         }
     }
@@ -1066,6 +1131,28 @@ public sealed partial class MainWindow : Window
         return true;
     }
 
+    private void ShowPreviewLoading(string text)
+    {
+        PreviewLoadingPanel.Visibility = Visibility.Visible;
+        PreviewHint.Visibility = Visibility.Visible;
+        PreviewHint.Text = text;
+        PreviewSpinner.IsActive = true;
+    }
+
+    private void ShowPreviewMessage(string text)
+    {
+        PreviewLoadingPanel.Visibility = Visibility.Visible;
+        PreviewHint.Visibility = Visibility.Visible;
+        PreviewHint.Text = text;
+        PreviewSpinner.IsActive = false;
+    }
+
+    private void HidePreviewLoading()
+    {
+        PreviewSpinner.IsActive = false;
+        PreviewLoadingPanel.Visibility = Visibility.Collapsed;
+    }
+
     private void StopPreview()
     {
         try { _pvCts?.Cancel(); } catch { }
@@ -1078,8 +1165,7 @@ public sealed partial class MainWindow : Window
         _pvBmp = null;
         if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Pré-visualizar"); else BtnPreview.Content = Loc.T("Pré-visualizar");
         PreviewImage.Source = null;
-        PreviewHint.Visibility = Visibility.Visible;
-        PreviewHint.Text = "Sem preview";
+        ShowPreviewMessage("Sem preview");
     }
     // -----------------------------------------------------------------------
     // Handlers de eventos da UI
@@ -1100,6 +1186,10 @@ public sealed partial class MainWindow : Window
         catch { }
         FolderBox2.Text = FolderBox.Text;
         FileTemplateBox.Text = _fileTemplate;
+        UpdateUrlBox.Text = _updateUrl;
+        UpdateAutoSwitch.IsOn = _updateAuto;
+        UpdateCurrentText.Text = Loc.T("Versão instalada:") + " " + AppVersion;
+        UpdateStatusText.Text = "";
         FormatBox2.SelectedIndex = Math.Max(0, FormatBox.SelectedIndex);
         ContBox2.SelectedIndex = Math.Max(0, ContBox.SelectedIndex);
         SplitBox2.SelectedIndex = Math.Max(0, SplitBox.SelectedIndex);
@@ -1313,6 +1403,8 @@ public sealed partial class MainWindow : Window
         FolderBox.Text = FolderBox2.Text;
         _fileTemplate = string.IsNullOrWhiteSpace(FileTemplateBox.Text)
             ? "Captura_{data}_{hora}" : FileTemplateBox.Text.Trim();
+        _updateUrl = UpdateUrlBox.Text.Trim();
+        _updateAuto = UpdateAutoSwitch.IsOn;
         FormatBox.SelectedIndex = Math.Max(0, FormatBox2.SelectedIndex);
         ContBox.SelectedIndex = Math.Max(0, ContBox2.SelectedIndex);
         SplitBox.SelectedIndex = Math.Max(0, SplitBox2.SelectedIndex);
@@ -1354,7 +1446,17 @@ public sealed partial class MainWindow : Window
         Log("Definições guardadas.");
     }
 
+    private async void BrowseMainFolder_Click(object sender, RoutedEventArgs e)
+    {
+        await PickFolderAsync(FolderBox);
+    }
+
     private async void SettingsBrowse_Click(object sender, RoutedEventArgs e)
+    {
+        await PickFolderAsync(FolderBox2);
+    }
+
+    private async Task PickFolderAsync(TextBox target)
     {
         try
         {
@@ -1362,7 +1464,7 @@ public sealed partial class MainWindow : Window
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
             picker.FileTypeFilter.Add("*");
             var f = await picker.PickSingleFolderAsync();
-            if (f != null) FolderBox2.Text = f.Path;
+            if (f != null) target.Text = f.Path;
         }
         catch (Exception ex) { Log("pasta: " + ex.Message); }
     }
@@ -1371,6 +1473,8 @@ public sealed partial class MainWindow : Window
     {
         FolderBox2.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Videos", "Captura Studio");
         FileTemplateBox.Text = "Captura_{data}_{hora}";
+        UpdateUrlBox.Text = UpdateDefaults.ManifestUrl;
+        UpdateAutoSwitch.IsOn = true;
         FormatBox2.SelectedIndex = 0;
         ContBox2.SelectedIndex = 0;
         SplitBox2.SelectedIndex = 0;
@@ -1812,7 +1916,8 @@ public sealed partial class MainWindow : Window
         return name.Length > 0 ? name : "Captura";
     }
 
-    private void ShowNotice(InfoBarSeverity severity, string title, string message, bool autoClose = true)
+    private void ShowNotice(InfoBarSeverity severity, string title, string message, bool autoClose = true,
+                            string? actionText = null, Action? action = null)
     {
         try
         {
@@ -1836,6 +1941,10 @@ public sealed partial class MainWindow : Window
             NotifyTitle.Text = title;
             NotifyMessage.Text = message;
             NotifyMessage.Visibility = string.IsNullOrEmpty(message) ? Visibility.Collapsed : Visibility.Visible;
+            _notifyAction = action;
+            NotifyAction.Content = actionText ?? "";
+            NotifyAction.Visibility = action != null && !string.IsNullOrWhiteSpace(actionText)
+                ? Visibility.Visible : Visibility.Collapsed;
             NotifyBar.Visibility = Visibility.Visible;
             _notifyTimer.Stop();
             _notifyTimer.Interval = severity == InfoBarSeverity.Error
@@ -1848,7 +1957,189 @@ public sealed partial class MainWindow : Window
     private void NotifyClose_Click(object sender, RoutedEventArgs e)
     {
         _notifyTimer.Stop();
+        _notifyAction = null;
         NotifyBar.Visibility = Visibility.Collapsed;
+    }
+
+    private void NotifyAction_Click(object sender, RoutedEventArgs e)
+    {
+        var action = _notifyAction;
+        _notifyAction = null;
+        _notifyTimer.Stop();
+        NotifyBar.Visibility = Visibility.Collapsed;
+        try { action?.Invoke(); } catch (Exception ex) { Log("notify action: " + ex.Message); }
+    }
+
+    // -----------------------------------------------------------------------
+    // Atualizações (GitHub Releases + latest.json)
+    // -----------------------------------------------------------------------
+
+    private async void BtnCheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        _updateUrl = UpdateUrlBox.Text.Trim();
+        _updateAuto = UpdateAutoSwitch.IsOn;
+        SaveUpdateSettings();
+        await CheckForUpdatesAsync(silent: false);
+    }
+
+    private void SaveUpdateSettings()
+    {
+        if (_loadingSettings || UpdateUrlBox == null || UpdateAutoSwitch == null) return;
+        _updateUrl = UpdateUrlBox.Text.Trim();
+        _updateAuto = UpdateAutoSwitch.IsOn;
+        SaveSettings();
+    }
+
+    private async Task CheckForUpdatesAsync(bool silent)
+    {
+        if (_updateChecking) return;
+        _updateChecking = true;
+        if (!silent) UpdateStatusText.Text = Loc.T("A verificar…");
+        try
+        {
+            string url = (_updateUrl ?? "").Trim();
+            if (string.IsNullOrEmpty(url))
+            {
+                if (!silent) UpdateStatusText.Text = Loc.T("Configura a URL do manifesto.");
+                return;
+            }
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("CapturaStudio/" + AppVersion);
+            string json = await http.GetStringAsync(url);
+            json = json.TrimStart('\uFEFF');
+            var m = System.Text.Json.JsonSerializer.Deserialize<UpdateManifest>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (m == null || string.IsNullOrWhiteSpace(m.Version))
+            {
+                if (!silent) UpdateStatusText.Text = Loc.T("Resposta de atualização inválida.");
+                return;
+            }
+            if (!Version.TryParse(m.Version, out var latest) ||
+                !Version.TryParse(AppVersion, out var current))
+            {
+                if (!silent) UpdateStatusText.Text = Loc.T("Versão inválida no manifesto.");
+                return;
+            }
+            if (latest <= current)
+            {
+                if (!silent)
+                {
+                    UpdateStatusText.Text = Loc.T("Estás na versão mais recente.");
+                    ShowNotice(InfoBarSeverity.Success, Loc.T("Atualizações"),
+                               Loc.T("Estás na versão mais recente."));
+                }
+                return;
+            }
+
+            if (!silent) UpdateStatusText.Text = Loc.T("Nova versão disponível:") + " " + m.Version;
+            ShowUpdateAvailable(m, silent);
+        }
+        catch (HttpRequestException hex) when (hex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            Log("updates: 404 " + _updateUrl);
+            if (!silent)
+            {
+                UpdateStatusText.Text = Loc.T("Ainda não há release publicada (ou o repositório é privado).");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            Log("updates: timeout");
+            if (!silent)
+            {
+                UpdateStatusText.Text = Loc.T("Tempo esgotado ao verificar atualizações.");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Log("updates: " + ex.Message);
+            if (!silent)
+            {
+                UpdateStatusText.Text = Loc.T("Sem ligação ao GitHub.");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("updates: " + ex.Message);
+            if (!silent)
+            {
+                UpdateStatusText.Text = Loc.T("Não foi possível verificar atualizações.");
+                ShowNotice(InfoBarSeverity.Warning, Loc.T("Atualizações"), UpdateStatusText.Text);
+            }
+        }
+        finally { _updateChecking = false; }
+    }
+
+    private void ShowUpdateAvailable(UpdateManifest m, bool silent)
+    {
+        if (silent)
+        {
+            ShowNotice(InfoBarSeverity.Informational, Loc.T("Nova versão disponível"),
+                       $"{m.Version} · {Loc.T("Vê Definições → Sobre para atualizar.")}",
+                       autoClose: false, actionText: Loc.T("Ver"),
+                       action: () => ShowUpdateDialog(m));
+            return;
+        }
+        ShowUpdateDialog(m);
+    }
+
+    private async void ShowUpdateDialog(UpdateManifest m)
+    {
+        try
+        {
+            var panel = new StackPanel { Spacing = 8 };
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"{Loc.T("Versão instalada:")} {AppVersion}   ·   {Loc.T("Nova versão:")} {m.Version}",
+                TextWrapping = TextWrapping.Wrap
+            });
+            if (!string.IsNullOrWhiteSpace(m.Notes))
+                panel.Children.Add(new TextBlock { Text = m.Notes, TextWrapping = TextWrapping.Wrap });
+            if (!string.IsNullOrWhiteSpace(m.Sha256))
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "SHA-256: " + m.Sha256,
+                    FontSize = 10,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 120, 120))
+                });
+            panel.Children.Add(new TextBlock
+            {
+                Text = Loc.T("A app vai fechar durante a instalação."),
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 120, 120))
+            });
+
+            var dlg = new ContentDialog
+            {
+                Title = Loc.T("Atualização disponível"),
+                Content = new ScrollViewer { Content = panel, MaxHeight = 360 },
+                PrimaryButtonText = Loc.T("Transferir"),
+                CloseButtonText = Loc.T("Agora não"),
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = Content.XamlRoot
+            };
+            if (await dlg.ShowAsync() != ContentDialogResult.Primary) return;
+            await OpenUpdateUrlAsync(m.Url);
+        }
+        catch (Exception ex) { Log("update dialog: " + ex.Message); }
+    }
+
+    private async Task OpenUpdateUrlAsync(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), Loc.T("URL de atualização inválida."));
+            return;
+        }
+        try { await Windows.System.Launcher.LaunchUriAsync(uri); }
+        catch (Exception ex) { ShowNotice(InfoBarSeverity.Error, Loc.T("Erro"), ex.Message); }
     }
 
     // -----------------------------------------------------------------------
@@ -2162,7 +2453,7 @@ public sealed partial class MainWindow : Window
         _recPreview = true;
         _pvCts = new CancellationTokenSource();
         var pct = _pvCts.Token;
-        PreviewHint.Text = "A ligar...";
+        ShowPreviewLoading("A ligar...");
         if (PreviewBtnText != null) PreviewBtnText.Text = Loc.T("Parar pré-visualização");
         else BtnPreview.Content = Loc.T("Parar pré-visualização");
         _ = Task.Run(() => PreviewVideoLoop(pct));
@@ -2232,7 +2523,7 @@ public sealed partial class MainWindow : Window
         {
             var arates = new[] { 44100, 48000, 96000 };
             var achans = new[] { 2, 1 };
-            var abitsv = new[] { 24, 16 };
+            var abitsv = new[] { 24, 16, 32 };
             args.AddRange(new[] {
                 "--audio-rate", arates[Math.Max(0, AudioRateBox.SelectedIndex)].ToString(),
                 "--audio-channels", achans[Math.Max(0, AudioChannelsBox.SelectedIndex)].ToString()
@@ -2340,7 +2631,7 @@ public sealed partial class MainWindow : Window
         {
             var arates = new[] { 44100, 48000, 96000 };
             var achans = new[] { 2, 1 };
-            var abits  = new[] { 24, 16 };
+            var abits  = new[] { 24, 16, 32 };
             args.AddRange(new[]
             {
                 "--audio-rate", arates[Math.Max(0, AudioRateBox.SelectedIndex)].ToString(),
@@ -2770,7 +3061,7 @@ public sealed partial class MainWindow : Window
         switch (_rawAudioMode)
         {
             case 1: a.AddRange(new[] { "-c:a", "aac", "-b:a", kbps + "k" }); break;
-            case 2: a.AddRange(new[] { "-c:a", AudioBitsBox.SelectedIndex == 0 ? "pcm_s24le" : "pcm_s16le" }); break;
+            case 2: a.AddRange(new[] { "-c:a", "copy" }); break;
             case 3: a.AddRange(new[] { "-c:a", "libmp3lame", "-b:a", kbps + "k" }); break;
             case 4: a.AddRange(new[] { "-c:a", "flac" }); break;
             case 5: a.AddRange(new[] { "-c:a", "libopus", "-b:a", kbps + "k" }); break;
@@ -3029,16 +3320,25 @@ public sealed partial class MainWindow : Window
     // Medidor de nível
     // -----------------------------------------------------------------------
 
+    private double _lastLevelDb = -60;
+
     private void UpdateLevel(float db)
     {
         try
         {
             if (float.IsNaN(db) || float.IsInfinity(db)) db = -60;
             db = Math.Clamp(db, -60f, 0f);
-            AudioMeter.Value = (db + 60.0) / 60.0;
+            _lastLevelDb = db;
+            double frac = (db + 60.0) / 60.0;
+            AudioMeterFill.Width = Math.Max(0, AudioMeterTrack.ActualWidth * frac);
             AudioMeterText.Text = $"{db:0} dB";
         }
         catch { }
+    }
+
+    private void AudioMeterTrack_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateLevel((float)_lastLevelDb);
     }
 
     // -----------------------------------------------------------------------
@@ -3124,7 +3424,9 @@ public sealed partial class MainWindow : Window
                 ShowInfo    = _showInfo,
                 FileTemplate = _fileTemplate,
                 Language    = Loc.Lang,
-                Folder      = FolderBox.Text
+                Folder      = FolderBox.Text,
+                UpdateUrl   = string.IsNullOrWhiteSpace(_updateUrl) ? UpdateDefaults.ManifestUrl : _updateUrl,
+                UpdateAuto  = _updateAuto
             };
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
             File.WriteAllText(SettingsPath,
@@ -3184,6 +3486,8 @@ public sealed partial class MainWindow : Window
             _previewVolume = s.PreviewVolume;
             _showInfo = s.ShowInfo;
             _fileTemplate = s.FileTemplate;
+            _updateUrl = string.IsNullOrWhiteSpace(s.UpdateUrl) ? UpdateDefaults.ManifestUrl : s.UpdateUrl.Trim();
+            _updateAuto = s.UpdateAuto;
             _savedResText = s.ResText;
             _savedFpsText = s.FpsText;
             _savedFmtText = s.FormatText;

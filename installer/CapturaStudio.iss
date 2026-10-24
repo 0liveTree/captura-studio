@@ -4,7 +4,10 @@
 
 #define MyAppName "Captura Studio"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.0.0"
+  #define MyAppVersion "1.0.1"
+#endif
+#ifndef MyAppVersionInfo
+  #define MyAppVersionInfo "1.0.1.0"
 #endif
 #define MyAppPublisher "OliveTree"
 #define MyAppExeName "CapturaStudio.exe"
@@ -35,7 +38,8 @@ RestartApplications=no
 UsePreviousAppDir=yes
 DirExistsWarning=no
 SetupLogging=yes
-VersionInfoVersion=1.0.0.0
+SetupIconFile=..\uwc03-winui\Assets\videotape.ico
+VersionInfoVersion={#MyAppVersionInfo}
 
 [Languages]
 Name: "portuguese"; MessagesFile: "compiler:Languages\Portuguese.isl"

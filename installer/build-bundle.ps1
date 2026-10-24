@@ -18,7 +18,7 @@
 [CmdletBinding()]
 param(
     [string]$OutDir = '',
-    [string]$Version = '1.0.0',
+    [string]$Version = '',
     [switch]$SkipFfmpeg,
     [switch]$Zip
 )
@@ -29,6 +29,15 @@ function Fail([string]$m) { Write-Host "ERRO: $m" -ForegroundColor Red; exit 1 }
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $OutDir) { $OutDir = Join-Path $here 'bundle' }
 $root = Split-Path -Parent $here
+
+if (-not $Version) {
+    $csproj = Join-Path $root 'uwc03-winui\CapturaStudio.csproj'
+    if (Test-Path $csproj) {
+        $xml = Get-Content $csproj -Raw
+        if ($xml -match '<Version>([^<]+)</Version>') { $Version = $Matches[1].Trim() }
+    }
+    if (-not $Version) { $Version = '1.0.1' }
+}
 $appSrc = Join-Path $root 'uwc03-winui\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64'
 $engineSrc = Join-Path $root 'uvc03-rec\target\release\captura-rec.exe'
 $ffSrc = Join-Path $env:LOCALAPPDATA 'CapturaStudio\ffmpeg'

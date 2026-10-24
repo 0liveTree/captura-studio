@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <AssemblyName>CapturaStudio</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Company>OliveTree</Company>
     <Product>Captura Studio</Product>
     <Copyright>© 2026 OliveTree - Feito em Portugal com amor e carinho</Copyright>
@@ -22,7 +22,12 @@
 
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\videotape.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Assets\videotape.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\videotape.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.260224002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />

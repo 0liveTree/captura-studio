@@ -23,6 +23,16 @@ o ZIP do instalador publicado na release contém `ffmpeg.exe` e `ffprobe.exe`.
   correspondente ao binário, usa a versão 9.0.2 e a configuração indicada.
 - O Captura Studio não altera o FFmpeg; chama os executáveis por linha de comandos.
 
+## SVG Spinners (spinner do preview)
+
+- Inspiração de design: **SVG Spinners** de **Utkarsh Verma**, licença **MIT**
+  (sem atribuição obrigatória; creditamos na mesma).
+- https://github.com/n3r4zzurr0/svg-spinners
+- https://icon-sets.iconify.design/svg-spinners/
+- O spinner do preview é uma **reimplementação nativa em XAML** do estilo `90-ring` (anel de
+  fundo + arco de 90° a rodar) em `uwc03-winui/SpinnerControl.xaml`; não é carregado nenhum SVG
+  animado em runtime.
+
 ## NAudio 2.2.1
 
 - Biblioteca de áudio usada pela app para o preview.
