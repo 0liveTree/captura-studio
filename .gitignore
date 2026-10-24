@@ -15,7 +15,9 @@ dist/
 
 # Instalador / bundle (gerado localmente)
 installer/bundle/
+installer/out/
 installer/*.zip
+installer/*.exe
 
 # Logs, chaves e ficheiros locais
 *.log

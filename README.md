@@ -21,16 +21,19 @@ passar por MJPEG nem por um segundo leitor.
   **GOP em segundos (0 = automático)** e **CQ**
 - Rate control, bitrate, GOP/keyframe configuráveis também no caminho Media Foundation
 - Perfis de cor: **Rec.709 / Rec.2020** e intervalo **limitado/completo**
-- Áudio **AAC**, **PCM** (16/24-bit), **MP3**, **FLAC** ou **Opus** (os últimos via FFmpeg)
+- Áudio **AAC**, **PCM** (16/24/32-bit; 32 depende da placa, com fallback automático), **MP3**, **FLAC** ou **Opus** (os últimos via FFmpeg)
 - Contentores: **MP4, MKV, TS**
 - **Divisão automática** em segmentos (5/10/30/60 min)
 - Pré-visualização em tempo real (vídeo + áudio) com **volume**, **ecrã inteiro** e controlos
   auto-ocultáveis; o preview é servido pelo próprio processo que tem a placa
+- Spinner de ligação no preview (arco de 90° inspirado em **SVG Spinners**, MIT)
 - Notificações in-app (gravação guardada, erro, sem sinal), **perfis/presets** com nome,
   single-instance e template de nome (`{data}`, `{hora}`, `{dispositivo}`, `{modo}`)
 - Atalhos locais **F9/F10** e globais **Ctrl+Alt+F9/F10**
 - Medidor de nível de áudio, definições persistentes, tema claro/escuro, Mica/Acrílico e
   cor de destaque
+- **Verificador de atualizações** por GitHub Releases (`latest.json`): aviso no arranque,
+  notas da versão e abertura do Setup
 
 ## Requisitos
 
@@ -42,6 +45,7 @@ passar por MJPEG nem por um segundo leitor.
 - **FFmpeg** com `h264_nvenc`/`hevc_nvenc` ou `libx264`/`libx265` — opcional para o caminho
   Media Foundation, necessário para a pipeline FFmpeg. O instalador inclui um build GPLv3
   (ver [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)).
+- **Inno Setup 6** — opcional; só para gerar o `Setup.exe`.
 
 ## Build
 
@@ -62,19 +66,45 @@ msbuild CapturaStudio.csproj /restore /p:Configuration=Release /p:Platform=x64 /
 O binário da app fica em `uwc03-winui\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\`.
 O motor fica em `uvc03-rec\target\release\captura-rec.exe`.
 
+### Instalador (Setup.exe)
+
+Requer **Inno Setup 6** (`winget install --id JRSoftware.InnoSetup -e`). O script usa
+`installer\bundle` ou extrai `installer\CapturaStudio-1.0.2.zip`; se nenhum existir, corre
+`build-bundle.ps1` (que precisa da app e do motor compilados).
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
+```
+
+Gera `installer\out\CapturaStudio-1.0.2-Setup.exe` e `installer\out\latest.json`.
+
+## Assinatura
+
+O Captura Studio usa a **SignPath Foundation** para assinatura de código.
+
+> Code signing provided by SignPath.io, certificate by SignPath Foundation.
+
+Enquanto a candidatura está em aprovação, a build 1.0.2 e anteriores podem estar **não
+assinadas**; nesse caso o Windows SmartScreen pode mostrar um aviso.
+
 ## Instalação
 
-### A partir da release
+### A partir do instalador (recomendado)
 
-Descarrega o ZIP do instalador na [página de Releases](../../releases/latest), extrai e corre:
+Descarrega `CapturaStudio-1.0.2-Setup.exe` na [página de Releases](../../releases/latest) e
+executa. O Setup instala por utilizador em `%LOCALAPPDATA%\CapturaStudio`, **sem admin**, cria
+o atalho no Menu Iniciar e regista a desinstalação. `settings.json` e `profiles.json` são
+preservados.
+
+### A partir do ZIP (portátil/PowerShell)
+
+Se gerares o ZIP portátil (`installer\build-bundle.ps1 -Zip`), instala com:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-captura.ps1
 ```
 
-Instala em `%LOCALAPPDATA%\CapturaStudio`, preserva `settings.json` e `profiles.json`, cria
-atalhos e regista a desinstalação em HKCU. O ZIP inclui a app, o motor, o FFmpeg e os avisos
-de terceiros.
+O ZIP inclui a app, o motor, o FFmpeg e os avisos de terceiros.
 
 ### A partir do código
 
@@ -87,6 +117,29 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\bundle\install-c
 
 `installer\bundle\` é gerado localmente e **não** está no repositório. O script
 `installer\build-bundle.ps1` copia a app, o motor, o FFmpeg e os avisos de terceiros.
+
+## Atualizações
+
+A app verifica o manifesto `latest.json` da release mais recente:
+
+```text
+https://github.com/0liveTree/captura-studio/releases/latest/download/latest.json
+```
+
+- Configurável em **Definições → Sobre**, com **Verificar ao arrancar** e **Verificar atualizações**.
+- O manifesto tem `version`, `url`, `sha256` e `notes`; a app compara com a versão instalada.
+- Se houver versão nova, mostra as notas e o botão **Transferir**, que abre o Setup.
+- O repositório tem de ser **público**: o pedido não é autenticado. Num repositório privado, o
+  check falha (não há token).
+- Cada release tem de incluir `CapturaStudio-X-Setup.exe` e `latest.json`. O
+  `installer\build-installer.ps1` gera os dois em `installer\out`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 1.0.2 -Notes "..."
+gh release create v1.0.2 "installer\out\CapturaStudio-1.0.2-Setup.exe" "installer\out\latest.json" --title "Captura Studio 1.0.2" --notes "..."
+```
+
+- O Setup não está assinado; o SmartScreen pode avisar.
 
 ## Utilização
 
@@ -109,7 +162,7 @@ Em `--raw-video`, o stdout é só NV12; o áudio PCM vai para `<out>.wav` e o es
 |---|---|
 | `uvc03-rec/` | Motor em Rust (captura, conversão, codificação, preview) |
 | `uwc03-winui/` | Aplicação WinUI 3 |
-| `installer/` | Instalação/desinstalação por utilizador e criação do bundle |
+| `installer/` | Setup Inno (`CapturaStudio.iss`, `build-installer.ps1`), instalação/desinstalação por utilizador e bundle |
 | `scripts/` | Smoke test do motor + FFmpeg |
 
 ## Testes
@@ -131,7 +184,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\captura-smoke.ps1
 captura-rec.exe [--out ficheiro] [--container mp4|mkv|ts]
                 [--w 1920 --h 1080 --fps 30] [--bitrate 12000000]
                 [--codec h264|hevc] [--profile baseline|main|high]
-                [--sw] [--no-audio] [--audio-kbps 192] [--pcm]
+                [--sw] [--no-audio] [--audio-kbps 192] [--audio-bits 16|24|32] [--pcm]
                 [--color-space 709|2020] [--color-range limited|full]
                 [--format auto|nv12|mjpeg|yuy2|rgb32]
                 [--seconds N] [--split-min M]

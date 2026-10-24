@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -139,6 +139,16 @@ pub fn set_level_peak(level: &AtomicU32, bytes: &[u8], bits: u32) {
             }
         }
         let db = 20.0 * (peak as f32 / 8_388_608.0).max(1e-6).log10();
+        level.store(db.to_bits(), Ordering::Relaxed);
+    } else if bits == 32 {
+        for c in bytes.chunks_exact(4) {
+            let v = i32::from_le_bytes([c[0], c[1], c[2], c[3]]);
+            let a = v.saturating_abs();
+            if a > peak {
+                peak = a;
+            }
+        }
+        let db = 20.0 * (peak as f32 / 2_147_483_648.0).max(1e-6).log10();
         level.store(db.to_bits(), Ordering::Relaxed);
     } else {
         for c in bytes.chunks_exact(2) {
@@ -418,6 +428,14 @@ impl PreviewHub {
                 out.push(c[2]);
             }
             let _ = tx.try_send(out);
+        } else if bits == 32 {
+            let mut out = Vec::with_capacity(bytes.len() / 4 * 2);
+            for c in bytes.chunks_exact(4) {
+                // PCM 32-bit little-endian: os 16 bits altos são o valor 16-bit.
+                out.push(c[2]);
+                out.push(c[3]);
+            }
+            let _ = tx.try_send(out);
         }
     }
 }
@@ -465,6 +483,9 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
         let t0 = MFGetSystemTime();
         let vstart = Arc::new(AtomicI64::new(-1));
         let astart = Arc::new(AtomicI64::new(-1));
+        // O áudio só começa a ser lido depois do primeiro frame de vídeo sair.
+        // Sem isto o WAV arrancava ~1 s antes e o mux tinha de cortar o início.
+        let audio_gate = Arc::new((Mutex::new(false), Condvar::new()));
 
         // ---------- áudio: WAV ao lado do vídeo ----------
         // Nível para o medidor da app (LVL no stderr, como no caminho MF).
@@ -493,9 +514,23 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
                         "AUDIO wav={} rate={} ch={} bits={}",
                         wpath, fmt.rate, fmt.ch, fmt.bits
                     );
+                    let gate = audio_gate.clone();
                     Some(thread::spawn(move || {
                         let rd = rd;
                         let reader = rd.0;
+                        {
+                            let (lock, cvar) = &*gate;
+                            let mut started = lock.lock().unwrap();
+                            while !*started && !stop_a.load(Ordering::Relaxed) {
+                                let (g, _) = cvar
+                                    .wait_timeout(started, Duration::from_millis(50))
+                                    .unwrap();
+                                started = g;
+                            }
+                            if !*started {
+                                return 0;
+                            }
+                        }
                         write_wav_pcm(&reader, fmt, &wpath, &stop_a, Some(&level_a), hub_a, || {
                             a0.store((MFGetSystemTime() - t0) / 10_000, Ordering::Relaxed);
                         })
@@ -897,6 +932,11 @@ pub fn record_raw(cfg: &Config, stop: &Arc<AtomicBool>) -> windows::core::Result
                 ready_sent = true;
                 vstart.store((MFGetSystemTime() - t0) / 10_000, Ordering::Relaxed);
                 eprintln!("CAPTURE_READY w={} h={} target={}", cfg.w, cfg.h, cfg.fps);
+                let (lock, cvar) = &*audio_gate;
+                if let Ok(mut started) = lock.lock() {
+                    *started = true;
+                    cvar.notify_all();
+                }
             }
         }
         let _ = out.flush();
@@ -1584,11 +1624,16 @@ unsafe fn open_audio_pcm(cfg: &Config) -> windows::core::Result<(SendReader, Pcm
     let reader = MFCreateSourceReaderFromMediaSource(&src, None)?;
 
     let mut last: Option<windows::core::Error> = None;
-    // prefer 24-bit, fall back to 16-bit
+    // Pede a profundidade escolhida; se a placa não a suportar, tenta 24 e depois 16.
     let ach = cfg.audio_channels.max(1) as u32;
-    let fl = if cfg.audio_bits >= 24 { 3u32 } else { 2u32 };
     let arate = cfg.audio_rate;
-    let opts: Vec<(u32, u32, u32)> = if fl == 3 {
+    let opts: Vec<(u32, u32, u32)> = if cfg.audio_bits >= 32 {
+        vec![
+            (32, ach * 4, arate * ach * 4),
+            (24, ach * 3, arate * ach * 3),
+            (16, ach * 2, arate * ach * 2),
+        ]
+    } else if cfg.audio_bits >= 24 {
         vec![(24, ach * 3, arate * ach * 3), (16, ach * 2, arate * ach * 2)]
     } else {
         vec![(16, ach * 2, arate * ach * 2)]
