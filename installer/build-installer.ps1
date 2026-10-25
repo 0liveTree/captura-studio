@@ -33,7 +33,7 @@ if (-not $Version) {
         $xml = Get-Content $csproj -Raw
         if ($xml -match '<Version>([^<]+)</Version>') { $Version = $Matches[1].Trim() }
     }
-    if (-not $Version) { $Version = '2.0.0-beta.1' }
+    if (-not $Version) { $Version = '2.0.0-beta.2' }
 }
 $numericVersion = ($Version -split '-')[0]
 $versionInfo = "$numericVersion.0"

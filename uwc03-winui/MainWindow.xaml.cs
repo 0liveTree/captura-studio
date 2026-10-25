@@ -79,6 +79,7 @@ public sealed class WinUISettings
     public int    Bframes      { get; set; } = 3;   // 0..4
     public int    Multipass    { get; set; } = 0;   // 0=desligado 1=uma passagem 2=completa
     public int    Cq           { get; set; } = 23;  // valor 18..32
+    public bool   Aq           { get; set; } = true;
     public int    Backdrop     { get; set; } = 0;
     public int    Accent       { get; set; } = 0;
     public int    Theme        { get; set; } = 0;
@@ -181,8 +182,10 @@ public sealed partial class MainWindow : Window
     private static readonly string[] Profiles = { "baseline", "main", "high" };
     private static readonly string[] X264Presets =
         { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow" };
-    private static readonly int[]    CqValues = { 18, 20, 22, 23, 25, 28, 32 };
-    private static readonly int[]    Bframes = { 0, 1, 2, 3, 4 };
+    private int CqValue => (int)Math.Clamp(
+        double.IsNaN(CqBox.Value) ? 23 : Math.Round(CqBox.Value), 0, 51);
+    private int BframesValue => (int)Math.Clamp(
+        double.IsNaN(BframesBox.Value) ? 3 : Math.Round(BframesBox.Value), 0, 4);
 
     // --- estado de gravação ---
     private Process?  _proc;
@@ -222,6 +225,7 @@ public sealed partial class MainWindow : Window
     private int       _syncV = -1;
     private int       _syncA = -1;
     private int       _videoEncoder;
+    private bool      _aq = true;
     private bool      _loadingSettings;
     private readonly StringBuilder _ffLog = new();
     private readonly object _ffLogLock = new();
@@ -660,8 +664,12 @@ public sealed partial class MainWindow : Window
         foreach (var cb in new ComboBox[] { CodecBox, ProfileBox, BitrateBox, HwBox, RateBox,
                                          AudioModeBox, AbrBox, ContBox, DurBox, SplitBox,
                                          AudioRateBox, AudioChannelsBox, AudioBitsBox, ColorSpaceBox, ColorRangeBox,
-                                         PresetBox, TuneBox, BframesBox, MultipassBox, CqBox })
+                                         PresetBox, TuneBox, MultipassBox })
             cb.SelectionChanged += (_, _) => SaveSettings();
+        CqBox.ValueChanged += (_, _) => SaveSettings();
+        BframesBox.ValueChanged += (_, _) => SaveSettings();
+        AqBox.Checked += (_, _) => { _aq = true; SaveSettings(); };
+        AqBox.Unchecked += (_, _) => { _aq = false; SaveSettings(); };
         GopBox.ValueChanged += (_, _) => SaveSettings();
         RateBox.SelectionChanged += (_, _) => UpdateVideoFields();
         RateBox2.SelectionChanged += (_, _) => UpdateEncoderFields2();
@@ -1318,9 +1326,10 @@ public sealed partial class MainWindow : Window
         GopBox2.Value = Math.Clamp(GopBox.Value, 0, 30);
         PresetBox2.SelectedIndex = Math.Max(0, PresetBox.SelectedIndex);
         TuneBox2.SelectedIndex = Math.Max(0, TuneBox.SelectedIndex);
-        BframesBox2.SelectedIndex = Math.Max(0, BframesBox.SelectedIndex);
+        BframesBox2.Value = BframesBox.Value;
         MultipassBox2.SelectedIndex = Math.Max(0, MultipassBox.SelectedIndex);
-        CqBox2.SelectedIndex = Math.Max(0, CqBox.SelectedIndex);
+        CqBox2.Value = CqBox.Value;
+        AqBox.IsChecked = _aq;
         UpdateEncoderFields2();
 
         var asm = typeof(MainWindow).Assembly;
@@ -1622,9 +1631,10 @@ public sealed partial class MainWindow : Window
         GopBox.Value = Math.Clamp(GopBox2.Value, 0, 30);
         PresetBox.SelectedIndex = Math.Max(0, PresetBox2.SelectedIndex);
         TuneBox.SelectedIndex = Math.Max(0, TuneBox2.SelectedIndex);
-        BframesBox.SelectedIndex = Math.Max(0, BframesBox2.SelectedIndex);
+        BframesBox.Value = BframesBox2.Value;
         MultipassBox.SelectedIndex = Math.Max(0, MultipassBox2.SelectedIndex);
-        CqBox.SelectedIndex = Math.Max(0, CqBox2.SelectedIndex);
+        CqBox.Value = CqBox2.Value;
+        _aq = AqBox.IsChecked == true;
         _videoEncoder = Math.Clamp(EncoderBox2.SelectedIndex, 0, 5);
         UpdateAudioFields();
         UpdateVideoFields();
@@ -1710,9 +1720,9 @@ public sealed partial class MainWindow : Window
         GopBox2.Value = 2;
         PresetBox2.SelectedIndex = 4;
         TuneBox2.SelectedIndex = 0;
-        BframesBox2.SelectedIndex = 3;
+        BframesBox2.Value = 3;
         MultipassBox2.SelectedIndex = 0;
-        CqBox2.SelectedIndex = 3;
+        CqBox2.Value = 23;
         UpdateEncoderFields2();
     }
 
@@ -2020,6 +2030,13 @@ public sealed partial class MainWindow : Window
         bool nvenc = ResolveEncoder().Nvenc;
         MultipassBox.IsEnabled = nvenc && !lossless;
         MultipassBox.Opacity = MultipassBox.IsEnabled ? 1.0 : 0.45;
+        if (AqBox != null)
+        {
+            var aqe = ResolveEncoder();
+            bool aq = aqe.Enc is "libx264" or "libx265" || aqe.Nvenc;
+            AqBox.IsEnabled = aq;
+            AqBox.Opacity = aq ? 1.0 : 0.45;
+        }
         QualityHint.Opacity = cq ? 1.0 : 0.55;
     }
 
@@ -2594,9 +2611,9 @@ public sealed partial class MainWindow : Window
             GopSeconds = gop,
             Preset = Math.Max(0, PresetBox.SelectedIndex),
             Tune = Math.Max(0, TuneBox.SelectedIndex),
-            Bframes = Math.Max(0, BframesBox.SelectedIndex),
+            Bframes = BframesValue,
             Multipass = Math.Max(0, MultipassBox.SelectedIndex),
-            Cq = CqValues[Math.Max(0, Math.Min(CqValues.Length - 1, CqBox.SelectedIndex))],
+            Cq = CqValue,
             VideoEncoder = _videoEncoder,
             AudioMode = Math.Max(0, AudioModeBox.SelectedIndex),
             Abr = Math.Max(0, AbrBox.SelectedIndex),
@@ -2644,10 +2661,9 @@ public sealed partial class MainWindow : Window
             SetComboIndex(RateBox, p.RateMode);
             SetComboIndex(PresetBox, p.Preset);
             SetComboIndex(TuneBox, p.Tune);
-            SetComboIndex(BframesBox, p.Bframes);
+            BframesBox.Value = Math.Clamp(p.Bframes, 0, 4);
             SetComboIndex(MultipassBox, p.Multipass);
-            int cq = Array.IndexOf(CqValues, p.Cq);
-            if (cq >= 0) SetComboIndex(CqBox, cq);
+            CqBox.Value = Math.Clamp(p.Cq, 0, 51);
             GopBox.Value = p.GopSeconds > 0 ? p.GopSeconds : 2;
 
             SetComboIndex(AudioModeBox, p.AudioMode);
@@ -3199,8 +3215,13 @@ public sealed partial class MainWindow : Window
         else if (!av1 && nvenc)
             a.AddRange(new[] { "-tune", "lossless" });
 
+        if (e.Enc == "libx264" || e.Enc == "libx265")
+            a.AddRange(new[] { "-aq-mode", _aq ? "1" : "0" });
+        else if (nvenc)
+            a.AddRange(new[] { "-spatial-aq", _aq ? "1" : "0" });
+
         if (!av1)
-            a.AddRange(new[] { "-bf", Bframes[Math.Max(0, BframesBox.SelectedIndex)].ToString() });
+            a.AddRange(new[] { "-bf", BframesValue.ToString() });
 
         if (nvenc && !lossless && MultipassBox.SelectedIndex > 0)
             a.AddRange(new[] { "-multipass", MultipassBox.SelectedIndex == 1 ? "qres" : "fullres" });
@@ -3212,7 +3233,7 @@ public sealed partial class MainWindow : Window
         else if (!hevc && !av1 && !lossless && !p010) a.AddRange(new[] { "-profile:v", Profiles[Math.Max(0, ProfileBox.SelectedIndex)] });
 
         long br = (long)Bps[Math.Max(0, BitrateBox.SelectedIndex)] * 1_000_000L;
-        int cq = CqValues[Math.Clamp(CqBox.SelectedIndex, 0, CqValues.Length - 1)];
+        int cq = CqValue;
         if (av1)
         {
             switch (rateMode)
@@ -4036,9 +4057,10 @@ public sealed partial class MainWindow : Window
                 GopSeconds  = gopSec,
                 Preset      = Math.Max(0, PresetBox.SelectedIndex),
                 Tune        = Math.Max(0, TuneBox.SelectedIndex),
-                Bframes     = Math.Max(0, BframesBox.SelectedIndex),
+                Bframes     = BframesValue,
                 Multipass   = Math.Max(0, MultipassBox.SelectedIndex),
-                Cq          = CqValues[Math.Clamp(CqBox.SelectedIndex, 0, CqValues.Length - 1)],
+                Cq          = CqValue,
+                Aq          = _aq,
                 VideoEncoder = Math.Clamp(_videoEncoder, 0, 5),
                 AudioMode   = Math.Max(0, AudioModeBox.SelectedIndex),
                 Abr         = Math.Max(0, AbrBox.SelectedIndex),
@@ -4090,6 +4112,7 @@ public sealed partial class MainWindow : Window
             if (s == null) return;
             if (!string.IsNullOrEmpty(s.Language)) Loc.Lang = s.Language;
             _videoEncoder = Math.Clamp(s.VideoEncoder, 0, 5);
+            _aq = s.Aq;
             BuildEncoderList();
 
             SetIdx(CodecBox,     s.Codec);
@@ -4104,10 +4127,9 @@ public sealed partial class MainWindow : Window
             GopBox.Value = Math.Clamp(gopSec, 0, 30);
             SetIdx(PresetBox,    Math.Clamp(s.Preset, 0, 6));
             SetIdx(TuneBox,      Math.Clamp(s.Tune, 0, 3));
-            SetIdx(BframesBox,   Math.Clamp(s.Bframes, 0, 4));
+            BframesBox.Value = Math.Clamp(s.Bframes, 0, 4);
             SetIdx(MultipassBox, Math.Clamp(s.Multipass, 0, 2));
-            int cqIdx = Array.IndexOf(CqValues, s.Cq);
-            SetIdx(CqBox, cqIdx >= 0 ? cqIdx : 3);
+            CqBox.Value = Math.Clamp(s.Cq, 0, 51);
 
             SetIdx(AudioModeBox, Math.Clamp(s.AudioMode, 0, AudioModeBox.Items.Count - 1));
             SetIdx(AbrBox,       s.Abr);

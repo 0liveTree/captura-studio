@@ -222,10 +222,16 @@
                                     </StackPanel>
                                     <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="KEYFRAME (GOP)" Style="{StaticResource FieldLabelStyle}"/>
-                                        <NumberBox x:Name="GopBox" HorizontalAlignment="Stretch"
-                                                   Minimum="0" Maximum="30" SmallChange="1" LargeChange="5"
-                                                   Value="2" SpinButtonPlacementMode="Compact"
-                                                   ToolTipService.ToolTip="Intervalo entre keyframes em segundos; 0 = automático."/>
+                                        <Grid>
+                                            <NumberBox x:Name="GopBox"
+                                                       Minimum="0" Maximum="30" SmallChange="1" LargeChange="5"
+                                                       Value="2" SpinButtonPlacementMode="Inline"
+                                                       ToolTipService.ToolTip="Intervalo entre keyframes em segundos; 0 = automático."/>
+                                            <TextBlock Text="s" FontSize="12" Margin="0,0,34,0"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       IsHitTestVisible="False"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </Grid>
                                     </StackPanel>
                                     <StackPanel Grid.Row="2" Grid.Column="2" Spacing="4">
                                         <TextBlock Text="ESPAÇO DE COR" Style="{StaticResource FieldLabelStyle}"/>
@@ -248,13 +254,13 @@
                                         <TextBlock Text="PRESET" Style="{StaticResource FieldLabelStyle}"/>
                                         <ComboBox x:Name="PresetBox" HorizontalAlignment="Stretch"
                                                   ToolTipService.ToolTip="NVENC p1–p7 / CPU ultrafast–slow. p5·fast é o equilíbrio.">
-                                            <ComboBoxItem Content="p1 · ultrafast"/>
-                                            <ComboBoxItem Content="p2 · superfast"/>
-                                            <ComboBoxItem Content="p3 · veryfast"/>
-                                            <ComboBoxItem Content="p4 · faster"/>
-                                            <ComboBoxItem Content="p5 · fast" IsSelected="True"/>
-                                            <ComboBoxItem Content="p6 · medium"/>
-                                            <ComboBoxItem Content="p7 · slow"/>
+                                            <ComboBoxItem Content="P1: O mais rápido (Qualidade mais baixa)"/>
+                                            <ComboBoxItem Content="P2: Muito rápido (Qualidade muito baixa)"/>
+                                            <ComboBoxItem Content="P3: Rápido (Baixa qualidade)"/>
+                                            <ComboBoxItem Content="P4: Médio (Qualidade média)"/>
+                                            <ComboBoxItem Content="P5: Lento (Boa qualidade)" IsSelected="True"/>
+                                            <ComboBoxItem Content="P6: Muito lento (Melhor qualidade)"/>
+                                            <ComboBoxItem Content="P7: O mais lento (Qualidade mais alta)"/>
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
@@ -269,13 +275,9 @@
                                     </StackPanel>
                                     <StackPanel Grid.Row="3" Grid.Column="2" Spacing="4">
                                         <TextBlock Text="B-FRAMES" Style="{StaticResource FieldLabelStyle}"/>
-                                        <ComboBox x:Name="BframesBox" HorizontalAlignment="Stretch">
-                                            <ComboBoxItem Content="0"/>
-                                            <ComboBoxItem Content="1"/>
-                                            <ComboBoxItem Content="2"/>
-                                            <ComboBoxItem Content="3" IsSelected="True"/>
-                                            <ComboBoxItem Content="4"/>
-                                        </ComboBox>
+                                        <NumberBox x:Name="BframesBox" HorizontalAlignment="Stretch"
+                                                   Minimum="0" Maximum="4" SmallChange="1" Value="3"
+                                                   SpinButtonPlacementMode="Inline"/>
                                     </StackPanel>
                                     <StackPanel Grid.Row="4" Grid.Column="0" Spacing="4">
                                         <TextBlock Text="MULTIPASS" Style="{StaticResource FieldLabelStyle}"/>
@@ -288,17 +290,10 @@
                                     </StackPanel>
                                     <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4">
                                         <TextBlock Text="CQ (QUALIDADE)" Style="{StaticResource FieldLabelStyle}"/>
-                                        <ComboBox x:Name="CqBox" HorizontalAlignment="Stretch"
-                                                  MaxDropDownHeight="120"
-                                                  ToolTipService.ToolTip="0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática.">
-                                            <ComboBoxItem Content="18"/>
-                                            <ComboBoxItem Content="20"/>
-                                            <ComboBoxItem Content="22"/>
-                                            <ComboBoxItem Content="23" IsSelected="True"/>
-                                            <ComboBoxItem Content="25"/>
-                                            <ComboBoxItem Content="28"/>
-                                            <ComboBoxItem Content="32"/>
-                                        </ComboBox>
+                                        <NumberBox x:Name="CqBox" HorizontalAlignment="Stretch"
+                                                   Minimum="0" Maximum="51" SmallChange="1" LargeChange="2"
+                                                   SpinButtonPlacementMode="Inline" Value="23"
+                                                   ToolTipService.ToolTip="0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática."/>
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock x:Name="QualityHint" FontSize="11" TextWrapping="Wrap"
@@ -783,6 +778,7 @@
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
                                                 <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
                                                     <TextBlock Text="Codificador de vídeo" FontSize="12"/>
@@ -801,13 +797,13 @@
                                                 <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
                                                     <TextBlock Text="Predefinição" FontSize="12"/>
                                                     <ComboBox x:Name="PresetBox2" HorizontalAlignment="Stretch">
-                                                        <ComboBoxItem Content="p1 · ultrafast"/>
-                                                        <ComboBoxItem Content="p2 · superfast"/>
-                                                        <ComboBoxItem Content="p3 · veryfast"/>
-                                                        <ComboBoxItem Content="p4 · faster"/>
-                                                        <ComboBoxItem Content="p5 · fast"/>
-                                                        <ComboBoxItem Content="p6 · medium"/>
-                                                        <ComboBoxItem Content="p7 · slow"/>
+                                                        <ComboBoxItem Content="P1: O mais rápido (Qualidade mais baixa)"/>
+                                                        <ComboBoxItem Content="P2: Muito rápido (Qualidade muito baixa)"/>
+                                                        <ComboBoxItem Content="P3: Rápido (Baixa qualidade)"/>
+                                                        <ComboBoxItem Content="P4: Médio (Qualidade média)"/>
+                                                        <ComboBoxItem Content="P5: Lento (Boa qualidade)"/>
+                                                        <ComboBoxItem Content="P6: Muito lento (Melhor qualidade)"/>
+                                                        <ComboBoxItem Content="P7: O mais lento (Qualidade mais alta)"/>
                                                     </ComboBox>
                                                 </StackPanel>
                                                 <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
@@ -819,14 +815,15 @@
                                                         <ComboBoxItem Content="Sem afinação"/>
                                                     </ComboBox>
                                                 </StackPanel>
-                                                <StackPanel Grid.Row="2" Grid.Column="0" Spacing="4">
-                                                    <TextBlock Text="B-frames" FontSize="12"/>
-                                                    <ComboBox x:Name="BframesBox2" HorizontalAlignment="Stretch">
-                                                        <ComboBoxItem Content="0"/><ComboBoxItem Content="1"/>
-                                                        <ComboBoxItem Content="2"/><ComboBoxItem Content="3"/>
-                                                        <ComboBoxItem Content="4"/>
-                                                    </ComboBox>
-                                                </StackPanel>
+                                                <Grid Grid.Row="2" Grid.Column="0" ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/><ColumnDefinition Width="150"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Fotogramas B" FontSize="12" VerticalAlignment="Center"/>
+                                                    <NumberBox x:Name="BframesBox2" Grid.Column="1"
+                                                               Minimum="0" Maximum="4" SmallChange="1" Value="3"
+                                                               SpinButtonPlacementMode="Inline"/>
+                                                </Grid>
                                                 <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
                                                     <TextBlock Text="Multipass" FontSize="12"/>
                                                     <ComboBox x:Name="MultipassBox2" HorizontalAlignment="Stretch">
@@ -835,28 +832,36 @@
                                                         <ComboBoxItem Content="Completa"/>
                                                     </ComboBox>
                                                 </StackPanel>
-                                                <StackPanel Grid.Row="3" Grid.Column="0" Spacing="4">
-                                                    <TextBlock Text="Intervalo de fotogramas-chave" FontSize="12"/>
-                                                    <NumberBox x:Name="GopBox2" HorizontalAlignment="Stretch"
-                                                               Minimum="0" Maximum="30" SmallChange="1" LargeChange="5"
-                                                               Value="2" SpinButtonPlacementMode="Compact"/>
-                                                    <TextBlock Text="segundos · 0 = automático" FontSize="11"
-                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                </StackPanel>
+                                                <Grid Grid.Row="3" Grid.Column="0" ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/><ColumnDefinition Width="150"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Intervalo de fotogramas-chave (segundos, 0=automático)"
+                                                               FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                    <Grid Grid.Column="1">
+                                                        <NumberBox x:Name="GopBox2"
+                                                                   Minimum="0" Maximum="30" SmallChange="1" LargeChange="5"
+                                                                   Value="2" SpinButtonPlacementMode="Inline"/>
+                                                        <TextBlock Text="s" FontSize="12" Margin="0,0,34,0"
+                                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                   IsHitTestVisible="False"
+                                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                    </Grid>
+                                                </Grid>
                                                 <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
                                                     <TextBlock Text="CQ (qualidade)" FontSize="12"/>
-                                                    <ComboBox x:Name="CqBox2" HorizontalAlignment="Stretch"
-                                                              MaxDropDownHeight="180"
-                                                              ToolTipService.ToolTip="0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática.">
-                                                        <ComboBoxItem Content="18"/><ComboBoxItem Content="20"/>
-                                                        <ComboBoxItem Content="22"/><ComboBoxItem Content="23"/>
-                                                        <ComboBoxItem Content="25"/><ComboBoxItem Content="28"/>
-                                                        <ComboBoxItem Content="32"/>
-                                                    </ComboBox>
+                                                    <NumberBox x:Name="CqBox2" HorizontalAlignment="Stretch"
+                                                               Minimum="0" Maximum="51" SmallChange="1" LargeChange="2"
+                                                               SpinButtonPlacementMode="Inline" Value="23"
+                                                               ToolTipService.ToolTip="0 = máxima qualidade, 51 = mínima; 18–32 é a faixa prática."/>
                                                     <TextBlock Text="0 = máxima, 51 = mínima · 18–32 é a faixa prática."
                                                                FontSize="11" TextWrapping="Wrap"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                                 </StackPanel>
+                                                <CheckBox x:Name="AqBox" Grid.Row="4" Grid.ColumnSpan="2"
+                                                          Content="Quantização adaptativa (AQ)" IsChecked="True"
+                                                          Margin="0,10,0,0"
+                                                          ToolTipService.ToolTip="Distribui melhor os bits pelas zonas complexas. Aplica-se a x264/x265 (aq-mode) e NVENC (spatial AQ)."/>
                                             </Grid>
                                         </StackPanel>
                                     </Border>

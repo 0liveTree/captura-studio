@@ -81,18 +81,18 @@ O motor fica em `uvc03-rec\target\release\captura-rec.exe`.
 ### Instalador (Setup.exe)
 
 Requer **Inno Setup 6** (`winget install --id JRSoftware.InnoSetup -e`). O script usa
-`installer\bundle` ou extrai `installer\CapturaStudio-2.0.0-beta.1.zip`; se nenhum existir, corre
+`installer\bundle` ou extrai `installer\CapturaStudio-2.0.0-beta.2.zip`; se nenhum existir, corre
 `build-bundle.ps1` (que precisa da app e do motor compilados).
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```
 
-Gera `installer\out\CapturaStudio-2.0.0-beta.1-Setup.exe` e `installer\out\latest.json`.
+Gera `installer\out\CapturaStudio-2.0.0-beta.2-Setup.exe` e `installer\out\latest.json`.
 
 ## Assinatura
 
-A build 2.0.0-beta.1 é distribuída **sem assinatura de código** — a candidatura à SignPath Foundation não
+A build 2.0.0-beta.2 é distribuída **sem assinatura de código** — a candidatura à SignPath Foundation não
 foi aprovada. O Windows SmartScreen pode mostrar um aviso; podes confirmar a integridade pelo
 SHA-256 publicado na release.
 
@@ -100,7 +100,7 @@ SHA-256 publicado na release.
 
 ### A partir do instalador (recomendado)
 
-Descarrega `CapturaStudio-2.0.0-beta.1-Setup.exe` na [página de Releases](../../releases/latest) e
+Descarrega `CapturaStudio-2.0.0-beta.2-Setup.exe` na [página de Releases](../../releases/latest) e
 executa. O Setup instala por utilizador em `%LOCALAPPDATA%\CapturaStudio`, **sem admin**, cria
 o atalho no Menu Iniciar e regista a desinstalação. `settings.json` e `profiles.json` são
 preservados.
@@ -144,8 +144,8 @@ https://github.com/0liveTree/captura-studio/releases/latest/download/latest.json
   `installer\build-installer.ps1` gera os dois em `installer\out`:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 2.0.0-beta.1 -Notes "..."
-gh release create v2.0.0-beta.1 "installer\out\CapturaStudio-2.0.0-beta.1-Setup.exe" "installer\out\latest.json" --title "Captura Studio 2.0.0-beta.1" --notes "..."
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 -Version 2.0.0-beta.2 -Notes "..."
+gh release create v2.0.0-beta.2 "installer\out\CapturaStudio-2.0.0-beta.2-Setup.exe" "installer\out\latest.json" --title "Captura Studio 2.0.0-beta.2" --notes "..."
 ```
 
 - O Setup não está assinado; o SmartScreen pode avisar.

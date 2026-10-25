@@ -17,7 +17,7 @@
 param(
     [string]$Source = '',
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'CapturaStudio'),
-    [string]$Version = '2.0.0-beta.1',
+    [string]$Version = '2.0.0-beta.2',
     [switch]$NoShortcuts,
     [switch]$NoRegistry
 )

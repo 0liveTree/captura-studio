@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <AssemblyName>CapturaStudio</AssemblyName>
-    <Version>2.0.0-beta.1</Version>
+    <Version>2.0.0-beta.2</Version>
     <Company>OliveTree</Company>
     <Product>Captura Studio</Product>
     <Copyright>© 2026 OliveTree - Feito em Portugal com amor e carinho</Copyright>

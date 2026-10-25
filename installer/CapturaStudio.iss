@@ -4,7 +4,7 @@
 
 #define MyAppName "Captura Studio"
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.0-beta.1"
+  #define MyAppVersion "2.0.0-beta.2"
 #endif
 #ifndef MyAppVersionInfo
   #define MyAppVersionInfo "2.0.0.0"
